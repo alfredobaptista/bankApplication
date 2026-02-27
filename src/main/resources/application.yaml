@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: bankApi
+  profiles:
+    active: dev
+  messages:
+    basename: messages
+    encoding: UTF-8
+
+flyway:
+  enabled: true
+  baseline-on-migrate: true

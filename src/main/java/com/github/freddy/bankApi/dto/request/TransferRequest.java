@@ -5,9 +5,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
-
 public record TransferRequest(
-        @NotBlank String sourceAccountNumber,
-        @NotBlank String destinationAccountNumber,
-        @NotNull @Positive BigDecimal amount
+        @NotBlank(message = "Informe o numero de conta")
+        String accountNumber,
+        @NotNull
+        @Positive
+        BigDecimal amount
 ) {}

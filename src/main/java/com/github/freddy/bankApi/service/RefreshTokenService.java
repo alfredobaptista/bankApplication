@@ -22,19 +22,26 @@ public class RefreshTokenService {
 
     @Transactional
     public RefreshToken createRefreshToken(User user) {
-        // Remove tokens antigos/revogados do mesmo usuário
-        refreshTokenRepository.deleteByUser(user);
-
         Instant expiryDate = Instant.now().plusSeconds(refreshExpirationDays * 86_400);
 
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .token(UUID.randomUUID().toString())  // ou usa outro gerador seguro
-                .expiryDate(expiryDate)
-                .build();
-
-        return refreshTokenRepository.save(refreshToken);
+        return refreshTokenRepository.findByUser(user)
+                .map(existing -> {
+                    existing.setToken(UUID.randomUUID().toString());
+                    existing.setExpiryDate(expiryDate);
+                    existing.setRevoked(false);
+                    return refreshTokenRepository.save(existing);
+                })
+                .orElseGet(() -> {
+                    RefreshToken refreshToken = RefreshToken.builder()
+                            .user(user)
+                            .token(UUID.randomUUID().toString())
+                            .expiryDate(expiryDate)
+                            .revoked(false)
+                            .build();
+                    return refreshTokenRepository.save(refreshToken);
+                });
     }
+
 
     @Transactional(readOnly = true)
     public RefreshToken findByToken(String token) {
@@ -46,9 +53,9 @@ public class RefreshTokenService {
     @Transactional
     public void revokeRefreshToken(String token) {
         refreshTokenRepository.findByToken(token)
-                .ifPresent(rt -> {
-                    rt.setRevoked(true);
-                    refreshTokenRepository.save(rt);
+                .ifPresent(refreshToken -> {
+                    refreshToken.setRevoked(true);
+                    refreshTokenRepository.save(refreshToken);
                 });
     }
 

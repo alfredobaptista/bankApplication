@@ -1,5 +1,7 @@
 package com.github.freddy.bankApi.service;
 
+import com.github.freddy.bankApi.dto.request.TransferRequest;
+import com.github.freddy.bankApi.dto.response.TransferResponse;
 import com.github.freddy.bankApi.entity.Account;
 import com.github.freddy.bankApi.entity.Transaction;
 import com.github.freddy.bankApi.enums.TransactionStatus;
@@ -7,6 +9,7 @@ import com.github.freddy.bankApi.enums.TransactionType;
 import com.github.freddy.bankApi.exception.InsufficientBalanceException;
 import com.github.freddy.bankApi.exception.ResourceNotFoundException;
 import com.github.freddy.bankApi.exception.UnauthorizedAccessException;
+import com.github.freddy.bankApi.mapper.TransactionMapper;
 import com.github.freddy.bankApi.repository.AccountRepository;
 import com.github.freddy.bankApi.repository.TransactionRepository;
 import jakarta.transaction.Transactional;
@@ -19,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Serviço responsável por operações de transações bancárias.
@@ -29,47 +33,42 @@ import java.util.List;
 public class TransactionService {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
-
     private static final BigDecimal DAILY_LIMIT = new BigDecimal("120000.00");
 
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+    private final TransactionMapper transactionMapper;
 
     /**
      * Realiza uma transferência entre contas.
      * Valida propriedade da conta de origem.
      */
     @Transactional
-    public BigDecimal transfer(String sourceNumber, BigDecimal amount, String destinationNumber, String userId) {
-        log.info("Transferência solicitada - Origem: {}, Destino: {}, Valor: {}, Usuário ID: {}",
-                sourceNumber, destinationNumber, amount, userId);
+    public TransferResponse transfer(TransferRequest dto, String userId) {
+        log.info("Transferência solicitada - Destino: {}, Valor: {}, Usuário ID: {}", dto.accountNumber(), dto.amount(), userId);
 
-        Account source = accountRepository.findByAccountNumberForUpdate(sourceNumber)
+        Account source = accountRepository.findByUserIdForUpdate(UUID.fromString(userId))
                 .orElseThrow(() -> new ResourceNotFoundException("Conta de origem não encontrada"));
 
-        Account destination = accountRepository.findByAccountNumberForUpdate(destinationNumber)
+        Account destination = accountRepository.findByAccountNumberForUpdate(dto.accountNumber())
                 .orElseThrow(() -> new ResourceNotFoundException("Conta de destino não encontrada"));
 
         // Segurança: verifica se a conta de origem pertence ao usuário logado
         if (!source.getUser().getId().toString().equals(userId)) {
-            log.warn("Tentativa não autorizada de transferência na conta {}", sourceNumber);
+            log.warn("Tentativa não autorizada de transferência na conta {}", source.getAccountNumber());
             throw new UnauthorizedAccessException("Você não tem permissão para operar esta conta");
         }
-
-        validateTransfer(source, amount, destinationNumber);
-
-        source.setBalance(source.getBalance().subtract(amount));
-        destination.setBalance(destination.getBalance().add(amount));
+        validateTransfer(source, dto.amount(), dto.accountNumber());
+        source.setBalance(source.getBalance().subtract(dto.amount()));
+        destination.setBalance(destination.getBalance().add(dto.amount()));
 
         accountRepository.save(source);
         accountRepository.save(destination);
 
-        saveTransaction(destination, source, amount, TransactionType.TRANSFER, TransactionStatus.COMPLETED,
-                "Transferência concluída com sucesso");
-
+        var savedTransaction = saveTransaction(destination, source, dto.amount(), TransactionType.TRANSFER, TransactionStatus.COMPLETED,
+                "Transferência realizada com sucesso");
         log.info("Transferência concluída - Novo saldo origem: {}", source.getBalance());
-
-        return source.getBalance();
+        return transactionMapper.toResponse(savedTransaction, source, destination, dto.amount());
     }
 
 
@@ -186,7 +185,7 @@ public class TransactionService {
     }
 
     // Salva transação
-    private void saveTransaction(Account destination, Account source, BigDecimal amount,
+    private Transaction saveTransaction(Account destination, Account source, BigDecimal amount,
                                  TransactionType type, TransactionStatus status, String description) {
         Transaction tx = Transaction.builder()
                 .sourceAccount(source)
@@ -198,6 +197,6 @@ public class TransactionService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        transactionRepository.save(tx);
+        return transactionRepository.save(tx);
     }
 }

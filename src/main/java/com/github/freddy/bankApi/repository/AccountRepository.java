@@ -24,6 +24,10 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
     @Query("SELECT a FROM Account a WHERE a.accountNumber = :accountNumber")
     Optional<Account> findByAccountNumberForUpdate(@Param("accountNumber") String accountNumber);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Account a WHERE a.user.id = :userId")
+    Optional<Account> findByUserIdForUpdate(@Param("userId") UUID userId);
+
     // Query nativa para buscar o próximo valor da SEQUENCE
     @Query(value = "SELECT nextval('seq_account_number')", nativeQuery = true)
     Long getNextSequenceValue();

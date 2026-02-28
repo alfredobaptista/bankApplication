@@ -28,7 +28,7 @@ public class TokenService {
 
     private String generateAccessToken(User user) {
         Instant now = Instant.now();
-        Instant expiration = now.plusSeconds(3600); // 1 hora
+        Instant expiration = now.plusSeconds(600); // 10 min
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("bankApi")

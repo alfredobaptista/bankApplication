@@ -42,7 +42,7 @@ public class Transaction {
     private Account destinationAccount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "transaction_status" , nullable = false)
     private TransactionStatus status;
 
     @Column(name = "created_at", insertable = false, updatable = false)

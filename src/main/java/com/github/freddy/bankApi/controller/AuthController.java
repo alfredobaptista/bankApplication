@@ -1,6 +1,6 @@
 package com.github.freddy.bankApi.controller;
 
-import com.github.freddy.bankApi.dto.LoginRequestDTO;
+import com.github.freddy.bankApi.dto.request.LoginRequest;
 import com.github.freddy.bankApi.dto.request.RefreshTokenRequest;
 import com.github.freddy.bankApi.dto.request.UserRegistrationRequest;
 import com.github.freddy.bankApi.dto.response.AuthTokensResponse;
@@ -18,8 +18,6 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.springframework.web.bind.annotation.*;
 
 /**
  * Controller responsável por autenticação e gerenciamento de sessão.
@@ -45,7 +43,6 @@ public class AuthController {
         log.debug("Requisição de registro recebida: email={}", data.email());
 
         UserRegistrationResponse response = authService.register(data);
-
         URI location = uriBuilder
                 .path("/api/v1/clients/{id}")
                 .buildAndExpand(response.clientId())
@@ -62,7 +59,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<AuthTokensResponse> login(
-            @Valid @RequestBody LoginRequestDTO data
+            @Valid @RequestBody LoginRequest data
     ) {
         log.debug("Requisição de login: email={}", data.email());
 

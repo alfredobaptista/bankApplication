@@ -17,6 +17,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
     void deleteByUser(User user); // útil para logout ou revogar todos tokens de um usuário
 
+    Optional<RefreshToken> findByUser(User user);
+
     @Modifying
     @Query("DELETE FROM RefreshToken rt WHERE rt.expiryDate < :now")
     int deleteExpired(@Param("now") Instant now);

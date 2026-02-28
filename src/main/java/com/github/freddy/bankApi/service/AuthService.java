@@ -1,6 +1,6 @@
 package com.github.freddy.bankApi.service;
 
-import com.github.freddy.bankApi.dto.LoginRequestDTO;
+import com.github.freddy.bankApi.dto.request.LoginRequest;
 import com.github.freddy.bankApi.dto.request.RefreshTokenRequest;
 import com.github.freddy.bankApi.dto.request.UserRegistrationRequest;
 import com.github.freddy.bankApi.dto.response.AuthTokensResponse;
@@ -27,9 +27,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
@@ -39,7 +37,7 @@ public class AuthService {
     /**
      * Autentica o usuário e retorna access token + refresh token.
      */
-    public AuthTokensResponse authenticate(LoginRequestDTO login) {
+    public AuthTokensResponse authenticate(LoginRequest login) {
         log.debug("Tentativa de login com email: {}", login.email());
 
         User user = userRepository.findByEmail(login.email())

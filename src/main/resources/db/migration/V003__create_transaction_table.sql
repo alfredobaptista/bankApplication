@@ -12,6 +12,8 @@ CREATE TABLE tb_transactions (
     source_account_id UUID,
     destination_account_id UUID,
 
+    transaction_status VARCHAR(100) NOT NULL CHECK(transaction_status IN ('PENDING', 'COMPLETED', 'FAILED')),
+
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_source_account

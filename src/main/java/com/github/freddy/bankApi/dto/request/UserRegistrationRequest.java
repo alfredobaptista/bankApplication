@@ -9,12 +9,13 @@ public record UserRegistrationRequest(
         String clientName,
 
         @NotBlank(message = "O BI é obrigatório")
-        @Size(min = 13, max = 13, message = "O BI deve ter exatamente 13 caracteres")
+        @Size(min = 14, max = 14, message = "O BI deve ter exatamente 14 caracteres")
         @Pattern(
-                regexp = "^[0-9]{9}[A-Z]{2}[0-9]{2}$",
-                message = "O BI deve seguir o formato padrão angolano "
+                regexp = "^[0-9]{9}[A-Z]{2}[0-9]{3}$",
+                message = "O BI deve seguir o formato padrão angolano (9 dígitos + 2 letras + 3 dígitos)"
         )
         String biNumber,
+
 
         @NotBlank(message = "O e-mail é obrigatório")
         @Email(message = "E-mail com formato inválido")

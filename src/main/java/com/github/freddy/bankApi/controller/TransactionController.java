@@ -3,6 +3,7 @@ package com.github.freddy.bankApi.controller;
 import com.github.freddy.bankApi.dto.request.DepositRequest;
 import com.github.freddy.bankApi.dto.request.TransferRequest;
 import com.github.freddy.bankApi.dto.request.WithdrawRequest;
+import com.github.freddy.bankApi.dto.response.TransferResponse;
 import com.github.freddy.bankApi.entity.Transaction;
 import com.github.freddy.bankApi.service.TransactionService;
 import jakarta.validation.Valid;
@@ -36,25 +37,18 @@ public class TransactionController {
      * - Retorna o novo saldo da conta de origem
      */
     @PostMapping("/transfer")
-    public ResponseEntity<BigDecimal> transfer(
+    public ResponseEntity<TransferResponse> transfer(
             @Valid @RequestBody TransferRequest dto,
             @AuthenticationPrincipal Jwt jwt
     ) {
         String userId = jwt.getSubject();
-        log.debug("Transferência solicitada por usuário ID: {} - De: {} Para: {} Valor: {}",
-                userId, dto.sourceAccountNumber(), dto.destinationAccountNumber(), dto.amount());
+        log.debug("Transferência solicitada por usuário ID: {} - Para: {}  Valor: {}",
+                userId, dto.accountNumber(), dto.amount());
 
-        BigDecimal newSourceBalance = transactionService.transfer(
-                dto.sourceAccountNumber(),
-                dto.amount(),
-                dto.destinationAccountNumber(),
-                userId
-        );
-
-        log.info("Transferência realizada com sucesso - Usuário ID: {}, De: {}, Para: {}, Valor: {}",
-                userId, dto.sourceAccountNumber(), dto.destinationAccountNumber(), dto.amount());
-
-        return ResponseEntity.ok(newSourceBalance);
+        TransferResponse response = transactionService.transfer(dto, userId);
+        log.info("Transferência realizada com sucesso - Usuário ID: {}, Para: {}, Valor: {}",
+                userId,  dto.accountNumber(), dto.amount());
+        return ResponseEntity.ok(response);
     }
 
     /**

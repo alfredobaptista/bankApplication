@@ -13,7 +13,7 @@ INSERT INTO tb_users (
     'Alfredo Baptista',
     '000000000UE00',
     'admin@bank.com',
-    '$2a$10$iVTIhkw4QLJZjZCmJ/lNke/.gI72N7VABw5mqsQKnnQkqrABXD/Eu',
+    '$2a$10$Y/8lJb1q/TX84eJvvA1v/uj6IUfbb8tt20rBBeN9I0JbFEDrACi2K',
     '+244951893360',
     'ROLE_ADMIN',
     CURRENT_TIMESTAMP

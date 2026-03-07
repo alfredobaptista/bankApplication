@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,9 +16,11 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
     Optional<RefreshToken> findByToken(String token);
 
-    void deleteByUser(User user); // útil para logout ou revogar todos tokens de um usuário
+    Optional<RefreshToken>findByUser(User user);
 
-    Optional<RefreshToken> findByUser(User user);
+    void deleteByUser(User user);
+
+    Optional<RefreshToken> findByTokenAndUserId(String token, UUID userId);
 
     @Modifying
     @Query("DELETE FROM RefreshToken rt WHERE rt.expiryDate < :now")

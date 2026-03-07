@@ -2,7 +2,7 @@ package com.github.freddy.bankApi.dto.request;
 
 import com.github.freddy.bankApi.enums.Role;
 
-public record InternalUserRequest(
+public record StaffUserRequest(
         String name,
         String email,
         String password,

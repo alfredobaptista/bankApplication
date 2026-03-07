@@ -10,3 +10,10 @@ spring:
 flyway:
   enabled: true
   baseline-on-migrate: true
+
+security:
+  jwt:
+    acess-token:
+      expiration: 600
+    refresh-token:
+      expiration: 20000

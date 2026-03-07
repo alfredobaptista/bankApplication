@@ -1,9 +1,9 @@
 package com.github.freddy.bankApi.mapper;
 
-import com.github.freddy.bankApi.dto.request.InternalUserRequest;
-import com.github.freddy.bankApi.dto.request.UserRegistrationRequest;
+import com.github.freddy.bankApi.dto.request.StaffUserRequest;
+import com.github.freddy.bankApi.dto.request.RegisterRequest;
 import com.github.freddy.bankApi.dto.response.AccountResponse;
-import com.github.freddy.bankApi.dto.response.UserRegistrationResponse;
+import com.github.freddy.bankApi.dto.response.RegistrationResponse;
 import com.github.freddy.bankApi.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -29,25 +29,25 @@ public abstract class UserMapper {
     @Mapping(target = "phoneNumber", source = "phoneNumber", qualifiedByName = "normalizePhone")
     @Mapping(target = "password", expression = "java(passwordEncoder.encode(request.password()))")
     @Mapping(target = "role", constant = "ROLE_CUSTOMER")
-    public abstract User toEntity(UserRegistrationRequest request);
+    public abstract User toEntity(RegisterRequest request);
 
     @Mapping(target = "email", expression = "java(request.email())")
     @Mapping(target = "bi", expression = "java(request.biNumber().toUpperCase())")
     @Mapping(target = "phoneNumber", expression = "java(normalizePhoneNumber(request.phoneNumber()))")
     @Mapping(target = "password", expression = "java(passwordEncoder.encode(request.password()))")
     @Mapping(target = "role", expression = "java(request.role())")
-    public abstract User toInternalEntity(InternalUserRequest request);
+    public abstract User toInternalEntity(StaffUserRequest request);
 
 
     @Mapping(target = "clientId", expression = "java(user.getId())")
     @Mapping(target = "client", expression = "java(toClientInfo(user))")
     @Mapping(target = "account", source = "account")
     @Mapping(target = "welcomeMessage", constant = "Bem-vindo à sua nova conta! Conta criada com sucesso! Verifique o SMS para activar a conta e começar a usar.")
-    public abstract UserRegistrationResponse toResponse(User user, AccountResponse account);
+    public abstract RegistrationResponse toResponse(User user, AccountResponse account);
 
     // Métodos default (não precisam de implementação gerada)
-    protected UserRegistrationResponse.ClientInfo toClientInfo(User user) {
-        return new UserRegistrationResponse.ClientInfo(
+    protected RegistrationResponse.ClientInfo toClientInfo(User user) {
+        return new RegistrationResponse.ClientInfo(
                 user.getName(),
                 user.getBi(),
                 user.getPhoneNumber(),

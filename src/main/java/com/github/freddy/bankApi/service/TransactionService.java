@@ -1,43 +1,50 @@
 package com.github.freddy.bankApi.service;
 
+import com.github.freddy.bankApi.dto.request.CardlessWithdrawRequest;
+import com.github.freddy.bankApi.dto.response.*;
 import com.github.freddy.bankApi.dto.request.TransferRequest;
-import com.github.freddy.bankApi.dto.response.TransferResponse;
 import com.github.freddy.bankApi.entity.Account;
+import com.github.freddy.bankApi.entity.CardlessWithdrawal;
 import com.github.freddy.bankApi.entity.Transaction;
 import com.github.freddy.bankApi.enums.TransactionStatus;
 import com.github.freddy.bankApi.enums.TransactionType;
+import com.github.freddy.bankApi.enums.WithdrawalStatus;
+import com.github.freddy.bankApi.exception.ConflictException;
 import com.github.freddy.bankApi.exception.InsufficientBalanceException;
-import com.github.freddy.bankApi.exception.ResourceNotFoundException;
-import com.github.freddy.bankApi.exception.UnauthorizedAccessException;
+import com.github.freddy.bankApi.exception.NotFoundException;
+import com.github.freddy.bankApi.exception.UnauthorizedException;
 import com.github.freddy.bankApi.mapper.TransactionMapper;
 import com.github.freddy.bankApi.repository.AccountRepository;
+import com.github.freddy.bankApi.repository.CardlessWithdrawalRepository;
 import com.github.freddy.bankApi.repository.TransactionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 
-/**
- * Serviço responsável por operações de transações bancárias.
- * Valida propriedade da conta com base no userId do token JWT.
- */
+
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
-
     private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
     private static final BigDecimal DAILY_LIMIT = new BigDecimal("120000.00");
+
 
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
+    private final CardlessWithdrawalRepository cardlessRepository;
 
     /**
      * Realiza uma transferência entre contas.
@@ -48,136 +55,156 @@ public class TransactionService {
         log.info("Transferência solicitada - Destino: {}, Valor: {}, Usuário ID: {}", dto.accountNumber(), dto.amount(), userId);
 
         Account source = accountRepository.findByUserIdForUpdate(UUID.fromString(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Conta de origem não encontrada"));
+                .orElseThrow(() -> new NotFoundException("Conta de origem não encontrada"));
 
         Account destination = accountRepository.findByAccountNumberForUpdate(dto.accountNumber())
-                .orElseThrow(() -> new ResourceNotFoundException("Conta de destino não encontrada"));
+                .orElseThrow(() -> new NotFoundException("Número de conta inválido"));
 
         // Segurança: verifica se a conta de origem pertence ao usuário logado
         if (!source.getUser().getId().toString().equals(userId)) {
             log.warn("Tentativa não autorizada de transferência na conta {}", source.getAccountNumber());
-            throw new UnauthorizedAccessException("Você não tem permissão para operar esta conta");
+            throw new UnauthorizedException("Você não tem permissão para operar esta conta");
         }
         validateTransfer(source, dto.amount(), dto.accountNumber());
-        source.setBalance(source.getBalance().subtract(dto.amount()));
-        destination.setBalance(destination.getBalance().add(dto.amount()));
+        source.setLedgerBalance(source.getLedgerBalance().subtract(dto.amount()));
+        source.setAvailableBalance(source.getAvailableBalance().subtract(dto.amount()));
+
+        destination.setLedgerBalance(destination.getLedgerBalance().add(dto.amount()));
+        destination.setAvailableBalance(destination.getAvailableBalance().add(dto.amount()));
 
         accountRepository.save(source);
         accountRepository.save(destination);
 
-        var savedTransaction = saveTransaction(destination, source, dto.amount(), TransactionType.TRANSFER, TransactionStatus.COMPLETED,
+        var savedTransaction = saveTransaction(
+                destination, source, dto.amount(), TransactionType.TRANSFER,
+                TransactionStatus.COMPLETED,
                 "Transferência realizada com sucesso");
-        log.info("Transferência concluída - Novo saldo origem: {}", source.getBalance());
+        log.info("Transferência concluída - Novo saldo origem: {}", source.getAvailableBalance());
         return transactionMapper.toResponse(savedTransaction, source, destination, dto.amount());
     }
 
 
-    // Versão para uso interno (ex: tasks agendadas, sem validação de user logado)
-    @Transactional
-    public BigDecimal deposit(String accountNumber, BigDecimal amount) {
-        log.info("Depósito interno (task) - Conta: {}, Valor: {}", accountNumber, amount);
-
-        Account account = accountRepository.findByAccountNumberForUpdate(accountNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("Conta não encontrada"));
-
-        account.setBalance(account.getBalance().add(amount));
-        Account updated = accountRepository.save(account);
-
-        saveTransaction(account, null, amount, TransactionType.DEPOSIT, TransactionStatus.COMPLETED,
-                "Depósito automático (juros ou task)");
-
-        return updated.getBalance();
-    }
     /**
      * Realiza um depósito na conta.
      * Valida propriedade da conta.
      */
     @Transactional
-    public BigDecimal deposit(String accountNumber, BigDecimal amount, String userId) {
-        log.info("Depósito solicitado - Conta: {}, Valor: {}, Usuário ID: {}", accountNumber, amount, userId);
-
+    public DepositResponse deposit(
+            String accountNumber,
+            BigDecimal amount,
+            String biNumber,
+            String userId
+    ) {
+        log.info("Depósito solicitado - Conta: {}, Valor: {}, Funcionario ID: {}", accountNumber, amount, userId);
         Account account = accountRepository.findByAccountNumberForUpdate(accountNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("Conta não encontrada"));
-
-        if (!account.getUser().getId().toString().equals(userId)) {
+                .orElseThrow(() -> new NotFoundException("Conta não encontrada"));
+        if (!account.getUser().getBi().equals(biNumber)) {
             log.warn("Tentativa não autorizada de depósito na conta {}", accountNumber);
-            throw new UnauthorizedAccessException("Você não tem permissão para operar esta conta");
+            throw new UnauthorizedException("Você não tem permissão para operar esta conta");
         }
-
-        account.setBalance(account.getBalance().add(amount));
+        account.setLedgerBalance(account.getLedgerBalance().add(amount));
+        account.setAvailableBalance(account.getAvailableBalance().add(amount));
         Account updated = accountRepository.save(account);
-
-        saveTransaction(account, null, amount, TransactionType.DEPOSIT, TransactionStatus.COMPLETED,
+        var transaction = saveTransaction(account, null, amount,
+                TransactionType.DEPOSIT,
+                TransactionStatus.COMPLETED,
                 "Depósito em numerário");
-
-        log.info("Depósito concluído - Novo saldo: {}", updated.getBalance());
-
-        return updated.getBalance();
-    }
-
-    /**
-     * Realiza um levantamento (saque) da conta.
-     * Valida propriedade da conta.
-     */
-    @Transactional
-    public BigDecimal withdraw(String accountNumber, BigDecimal amount, String userId) {
-        log.info("Levantamento solicitado - Conta: {}, Valor: {}, Usuário ID: {}", accountNumber, amount, userId);
-
-        Account account = accountRepository.findByAccountNumberForUpdate(accountNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("Conta não encontrada"));
-
-        if (!account.getUser().getId().toString().equals(userId)) {
-            log.warn("Tentativa não autorizada de levantamento na conta {}", accountNumber);
-            throw new UnauthorizedAccessException("Você não tem permissão para operar esta conta");
-        }
-
-        if (account.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientBalanceException("Saldo insuficiente para levantamento");
-        }
-
-        account.setBalance(account.getBalance().subtract(amount));
-        Account updated = accountRepository.save(account);
-
-        saveTransaction(null, account, amount, TransactionType.WITHDRAWAL, TransactionStatus.COMPLETED,
-                "Levantamento em ATM");
-
-        log.info("Levantamento concluído - Novo saldo: {}", updated.getBalance());
-
-        return updated.getBalance();
+        log.info("Depósito concluído - Novo saldo: {}", updated.getLedgerBalance());
+        return new DepositResponse(
+                transaction.getId(),
+                account.getAccountNumber(),
+                account.getUser().getName(),
+                amount,
+                account.getLedgerBalance(),
+                account.getCurrencyCode(),
+                transaction.getStatus(),
+                transaction.getDescription()
+        );
     }
 
     /**
      * Lista o histórico de transações da conta.
      * Valida propriedade da conta.
      */
-    public List<Transaction> listAllTransactions(String accountNumber, String userId) {
-        log.debug("Consulta de histórico - Conta: {}, Usuário ID: {}", accountNumber, userId);
+    public Page<TransactionResponse> listTransactions(
+            String userId,
+            Pageable pageable
+    ) {
+        Page<Transaction> transactions =
+                transactionRepository.findByUserId(
+                        UUID.fromString(userId),
+                        pageable
+                );
+        return transactions.map(transactionMapper::toResponse);
+    }
 
-        Account account = accountRepository.findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("Conta não encontrada"));
+    // Levantamento sem cartao
+    @Transactional
+    public CardlessWithdrawResponse cardlessWithdraw(
+            CardlessWithdrawRequest cardDto,
+            String userId
+    ) {
+        Account account = accountRepository
+                .findByUserIdForUpdate(UUID.fromString(userId))
+                .orElseThrow(() -> new NotFoundException("Conta não encontrada"));
 
-        if (!account.getUser().getId().toString().equals(userId)) {
-            log.warn("Tentativa não autorizada de ver histórico da conta {}", accountNumber);
-            throw new UnauthorizedAccessException("Você não tem permissão para ver o histórico desta conta");
+        if (account.getAvailableBalance().compareTo(cardDto.amount()) < 0) {
+            throw new InsufficientBalanceException("Saldo disponivel insuficiente");
         }
+        String referenceCode = String.format(
+                "%08d", new Random().nextInt(100000000)
+        );
+        CardlessWithdrawal cw = new CardlessWithdrawal();
+        cw.setUserId(UUID.fromString(userId));
+        cw.setAccountNumber(account.getAccountNumber());
+        cw.setAmount(cardDto.amount());
+        cw.setReferenceCode(referenceCode);
+        cw.setSecretCode(cardDto.secretCode());
+        cw.setStatus(WithdrawalStatus.PENDING);
 
-        List<Transaction> history = transactionRepository.findAllByAccountNumber(accountNumber);
+        //Durçao de validdae do codigo
+        cw.setExpiry(LocalDateTime.now().plusMinutes(3));
+        cw = cardlessRepository.save(cw);
 
-        log.info("Histórico retornado - Conta: {}, Total de transações: {}", accountNumber, history.size());
+        // Reserva o valor temporariamente
+        account.setAvailableBalance(
+                account.getAvailableBalance().subtract(cardDto.amount())
+        );
+        accountRepository.save(account);
+        saveTransaction(
+                null,
+                account,
+                cardDto.amount(),
+                TransactionType.WITHDRAWAL,
+                TransactionStatus.PENDING,
+                "Levantamento sem cartão"
+        );
+        return new CardlessWithdrawResponse(cw.getReferenceCode(),  cw.getAmount());
+    }
 
-        return history;
+    public void cancelCardlessWithDrawal(Long cwId, String userId) {
+        var withdrawal = cardlessRepository
+                .findById(cwId)
+                .orElseThrow(
+                        () -> new NotFoundException("Levantamento não existente")
+                );
+        var account = accountRepository
+                .findByUserIdForUpdate(UUID.fromString(userId))
+                .orElseThrow(() -> new NotFoundException("Levantamneto não existente"));
+        withdrawal.setStatus(WithdrawalStatus.CANCELLED);
+        cardlessRepository.save(withdrawal);
+        account.setAvailableBalance(account.getAvailableBalance().add(withdrawal.getAmount()));
     }
 
     // Validações para transferência
     private void validateTransfer(Account source, BigDecimal amount, String destinationNumber) {
         if (source.getAccountNumber().equals(destinationNumber)) {
-            throw new IllegalArgumentException("Não é permitido transferir para a própria conta");
+            throw new ConflictException("Não é permitido transferir para a própria conta");
         }
 
-        if (source.getBalance().compareTo(amount) < 0) {
+        if (source.getLedgerBalance().compareTo(amount) < 0) {
             throw new InsufficientBalanceException("Saldo insuficiente");
         }
-
         // Limite diário (exemplo simples - podes melhorar com soma real do dia)
         if (amount.compareTo(DAILY_LIMIT) > 0) {
             throw new IllegalStateException("Valor excede limite diário de transferência");
@@ -185,8 +212,10 @@ public class TransactionService {
     }
 
     // Salva transação
-    private Transaction saveTransaction(Account destination, Account source, BigDecimal amount,
-                                 TransactionType type, TransactionStatus status, String description) {
+    private Transaction saveTransaction(
+            Account destination, Account source, BigDecimal amount,
+            TransactionType type, TransactionStatus status, String description
+    ) {
         Transaction tx = Transaction.builder()
                 .sourceAccount(source)
                 .destinationAccount(destination)

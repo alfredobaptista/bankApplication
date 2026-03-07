@@ -15,26 +15,29 @@ import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
 
-    // Busca transações onde a conta foi origem OU destino (pelo número da conta)
+    @Query("SELECT t FROM Transaction t WHERE t.sourceAccount.accountNumber = :accountNumber")
+    Page<Transaction> findByAccountNumber(
+            @Param("accountNumber") String accountNumber,
+            Pageable pageable
+    );
 
-    @Query("""
-    SELECT t FROM Transaction t 
-    WHERE t.sourceAccount.accountNumber = :accountNumber 
-       OR t.destinationAccount.accountNumber = :accountNumber
-    """)
+    @Query("SELECT t FROM Transaction t WHERE t.sourceAccount.user.id = :userId")
+    Page<Transaction> findByUserId(@Param("userId") UUID userId, Pageable pageable);
 
-    List<Transaction> findAllByAccountNumber(@Param("accountNumber") String accountNumber);
 
+    Page<Transaction> findBySourceAccountUserId(UUID userId, Pageable pageable);
 
     @Query(value = """
-    SELECT a.account_number AS accountNumber, COUNT(*) AS transactionCount
-    FROM tb_transactions t
-    JOIN tb_accounts a ON t.source_account_id = a.id
-    WHERE t.created_at >= :since
-      AND t.amount >= :threshold
-    GROUP BY a.account_number
-    HAVING COUNT(*) >= :count
-    """, nativeQuery = true)
+        SELECT a.account_number AS accountNumber, COUNT(*) AS transactionCount
+        FROM tb_transactions t
+        JOIN tb_accounts a ON t.source_account_id = a.id
+        WHERE t.created_at >= :since
+          AND t.amount >= :threshold
+        GROUP BY a.account_number
+        HAVING COUNT(*) >= :count
+    """,
+            nativeQuery = true
+    )
     List<SuspiciousAccount> findSuspiciousAccounts(
             @Param("since") LocalDateTime since,
             @Param("threshold") BigDecimal threshold,

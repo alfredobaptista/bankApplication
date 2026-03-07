@@ -1,20 +1,22 @@
 package com.github.freddy.bankApi.service;
 
-import com.github.freddy.bankApi.dto.request.InternalUserRequest;
+import com.github.freddy.bankApi.dto.request.StaffUserRequest;
 import com.github.freddy.bankApi.dto.request.UpdatePasswordRequest;
-import com.github.freddy.bankApi.dto.request.UserRegistrationRequest;
+import com.github.freddy.bankApi.dto.request.RegisterRequest;
 import com.github.freddy.bankApi.dto.response.AccountResponse;
 import com.github.freddy.bankApi.dto.response.UserProfileResponse;
-import com.github.freddy.bankApi.dto.response.UserRegistrationResponse;
+import com.github.freddy.bankApi.dto.response.RegistrationResponse;
 import com.github.freddy.bankApi.entity.User;
 import com.github.freddy.bankApi.exception.ConflictException;
-import com.github.freddy.bankApi.exception.ResourceNotFoundException;
+import com.github.freddy.bankApi.exception.NotFoundException;
 import com.github.freddy.bankApi.mapper.UserMapper;
 import com.github.freddy.bankApi.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,7 +42,7 @@ public class UserService {
      * Endpoint público (para auto-registro).
      */
     @Transactional
-    public UserRegistrationResponse createNewUser(UserRegistrationRequest data) {
+    public RegistrationResponse createNewUser(RegisterRequest data) {
         log.debug("Tentativa de registro de cliente: email={}, BI={}", data.email(), data.biNumber());
 
         // Verificação de unicidade
@@ -72,7 +74,7 @@ public class UserService {
      * Endpoint protegido (somente ROLE_ADMIN).
      */
     @Transactional
-    public UserProfileResponse createInternalUser(InternalUserRequest request) {
+    public UserProfileResponse createInternalUser(StaffUserRequest request) {
         log.debug("Tentativa de criação de usuário interno: email={}, role={}", request.email(), request.role());
 
         if (userRepository.existsByEmail(request.email())) {
@@ -101,7 +103,7 @@ public class UserService {
      */
     public UserProfileResponse getProfile(UUID id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
         return new UserProfileResponse(
                 user.getId(),
                 user.getName(),
@@ -117,7 +119,7 @@ public class UserService {
     @Transactional
     public void updatePhoneNumber(UUID userId, String newPhoneNumber) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
         if (newPhoneNumber.equals(user.getPhoneNumber())) {
             throw new IllegalStateException("O número informado já está registrado");
@@ -137,7 +139,7 @@ public class UserService {
         log.debug("Tentativa de atualização de senha para usuário ID: {}", userId);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
         // Valida senha atual
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
@@ -148,8 +150,7 @@ public class UserService {
         if (request.newPassword().equals(request.currentPassword())) {
             throw new IllegalStateException("A nova senha não pode ser igual à senha atual");
         }
-
-        // Encripta e atualiza
+        // Encripta e actualiza
         String encodedNewPassword = passwordEncoder.encode(request.newPassword());
         user.setPassword(encodedNewPassword);
 
@@ -157,4 +158,8 @@ public class UserService {
 
         log.info("Senha atualizada com sucesso para usuário ID: {}", userId);
     }
+
+   /* public Page<UserProfileResponse> listUsers(Pageable pageable, String role, String bi) {
+
+    }*/
 }

@@ -2,7 +2,7 @@ package com.github.freddy.bankApi.dto.response;
 
 import java.util.UUID;
 
-public record UserRegistrationResponse(
+public record RegistrationResponse(
         UUID clientId,
         ClientInfo client,
         AccountResponse account,
@@ -16,7 +16,7 @@ public record UserRegistrationResponse(
     ) {}
 
 
-    public UserRegistrationResponse(
+    public RegistrationResponse(
             UUID clientId,
             ClientInfo client,
             AccountResponse account
@@ -26,8 +26,7 @@ public record UserRegistrationResponse(
                 client,
                 account,
                 "Bem-vindo à sua nova conta! " +
-                        "Conta criada com sucesso!"  +
-                        "Verifique o SMS para activar a conta e começar a usar. "
+                        "Conta criada com sucesso!"
         );
     }
 }

@@ -11,13 +11,16 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     Optional<Account> findByAccountNumber(String accountNumber);
 
-    // Método crucial para Transferências e Saques:
+    Optional<Account> findByUserId(UUID userId);
+
+    // Método crucial para Transferências e Levantamentos:
     // O LockModeType.PESSIMISTIC_WRITE impede que outra transação leia ou escreva
     // nesta conta enquanto você estiver processando o saldo.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -35,4 +38,7 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
     List<Account> findByAccountTypeAndStatus(AccountType accountType, AccountStatus accountStatus);
 
     boolean existsByAccountNumber(String accountNumber);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Account> findAllByAccountNumberIn(Set<String> accountNumbers);
 }

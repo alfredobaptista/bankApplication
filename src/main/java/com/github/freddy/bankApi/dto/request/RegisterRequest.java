@@ -3,7 +3,7 @@ package com.github.freddy.bankApi.dto.request;
 import jakarta.validation.constraints.*;
 import com.github.freddy.bankApi.enums.AccountType;
 
-public record UserRegistrationRequest(
+public record RegisterRequest(
         @NotBlank(message = "O nome é obrigatório")
         @Size(min = 5, max = 100)
         String clientName,

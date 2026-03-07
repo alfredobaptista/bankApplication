@@ -1,5 +1,4 @@
 package com.github.freddy.bankApi.entity;
-
 import com.github.freddy.bankApi.enums.AccountStatus;
 import com.github.freddy.bankApi.enums.AccountType;
 import jakarta.persistence.*;
@@ -16,7 +15,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class Account {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -24,8 +22,13 @@ public class Account {
     @Column(name = "account_number", nullable = false, updatable = false, unique = true)
     private String accountNumber;
 
-    @Column(name = "balance", nullable = false, precision = 15, scale = 2)
-    private BigDecimal balance;
+    // Saldo contábil (ledger balance): valor oficial após todos os movimentos registrados
+    @Column(name = "ledger_balance", nullable = false, precision = 15, scale = 2)
+    private BigDecimal ledgerBalance;
+
+    // Saldo disponível (available/effective balance): o que o cliente pode usar agora
+    @Column(name = "available_balance", nullable = false, precision = 15, scale = 2)
+    private BigDecimal availableBalance;
 
     @Column(name = "currency_code",  nullable = false, updatable = false)
     private String currencyCode;

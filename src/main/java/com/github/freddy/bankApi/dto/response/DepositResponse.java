@@ -1,18 +1,18 @@
 package com.github.freddy.bankApi.dto.response;
 
 import com.github.freddy.bankApi.enums.TransactionStatus;
-import com.github.freddy.bankApi.enums.TransactionType;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
-public record TransferResponse(
-        String destinationAccount,
-        String destinationOwnerName,
+public record DepositResponse(
+        UUID transactionId,
+        String accountNumber,
+        String ownerName,
         BigDecimal amount,
         BigDecimal balance,
         String currencyCode,
         TransactionStatus status,
-        TransactionType transactionType,
         String message
 ) {
 }

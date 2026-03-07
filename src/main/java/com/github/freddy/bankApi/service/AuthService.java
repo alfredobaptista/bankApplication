@@ -1,25 +1,23 @@
 package com.github.freddy.bankApi.service;
 
 import com.github.freddy.bankApi.dto.request.LoginRequest;
+import com.github.freddy.bankApi.dto.request.LogoutRequest;
 import com.github.freddy.bankApi.dto.request.RefreshTokenRequest;
-import com.github.freddy.bankApi.dto.request.UserRegistrationRequest;
+import com.github.freddy.bankApi.dto.request.RegisterRequest;
 import com.github.freddy.bankApi.dto.response.AuthTokensResponse;
 import com.github.freddy.bankApi.entity.RefreshToken;
 import com.github.freddy.bankApi.entity.User;
 import com.github.freddy.bankApi.exception.BusinessLogicException;
-import com.github.freddy.bankApi.exception.ResourceNotFoundException;
 import com.github.freddy.bankApi.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.github.freddy.bankApi.dto.response.UserRegistrationResponse;
+import com.github.freddy.bankApi.dto.response.RegistrationResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.UUID;
 
 /**
  * Serviço central de autenticação: login, registro e refresh token.
@@ -45,7 +43,6 @@ public class AuthService {
                     log.warn("Login falhou: email não encontrado - {}", login.email());
                     return new BadCredentialsException("Credenciais inválidas");
                 });
-
         if (!passwordEncoder.matches(login.password(), user.getPassword())) {
             log.warn("Login falhou: senha incorreta para email {}", login.email());
             throw new BadCredentialsException("Credenciais inválidas");
@@ -60,7 +57,7 @@ public class AuthService {
      * Registra novo usuário e cria conta padrão.
      * Delega a lógica pesada para UserService.
      */
-    public UserRegistrationResponse register(UserRegistrationRequest data) {
+    public RegistrationResponse register(RegisterRequest data) {
         log.debug("Tentativa de registro: email={}, BI={}", data.email(), data.biNumber());
 
         if (userRepository.existsByEmail(data.email())) {
@@ -74,7 +71,7 @@ public class AuthService {
             throw new BusinessLogicException("Este BI já está cadastrado");
         }
 
-        UserRegistrationResponse response = userService.createNewUser(data);
+        RegistrationResponse response = userService.createNewUser(data);
 
         log.info("Registro concluído: clientId={}, email={}, conta={}",
                 response.clientId(), data.email(), response.account().accountNumber());
@@ -96,7 +93,7 @@ public class AuthService {
         }
 
         // Rotação: revoga o token usado
-        refreshTokenService.revokeRefreshToken(request.refreshToken());
+        refreshTokenService.revokeRefreshToken(tokenEntity.getUser().getId().toString(), request.refreshToken());
         log.debug("Refresh token antigo revogado para usuário ID: {}", tokenEntity.getUser().getId());
 
         // Gera novos tokens
@@ -104,12 +101,10 @@ public class AuthService {
 
         log.info("Refresh realizado com sucesso: novo access token gerado para usuário ID: {}",
                 tokenEntity.getUser().getId());
-
         return newTokens;
     }
 
-    public  void logout(UUID userId) {
-        var user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("utilizador não encontrado"));
-        refreshTokenService.revokeAllUserTokens(user);
+    public  void logout(String userId, LogoutRequest data) {
+        refreshTokenService.revokeRefreshToken(userId, data.refreshToken());
     }
 }

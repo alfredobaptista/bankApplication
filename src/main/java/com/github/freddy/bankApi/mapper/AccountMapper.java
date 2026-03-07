@@ -8,5 +8,6 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface AccountMapper {
     @Mapping(target = "accountStatus", source = "status")
+    @Mapping(target = "leadgerBalance", source = "ledgerBalance")
     AccountResponse toResponse(Account account);
 }

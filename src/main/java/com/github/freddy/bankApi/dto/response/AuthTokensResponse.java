@@ -1,4 +1,16 @@
 package com.github.freddy.bankApi.dto.response;
 
 
-public record AuthTokensResponse(String accessToken, String refreshToken) {}
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public record AuthTokensResponse(
+
+        @JsonProperty("acess_token")
+        String accessToken,
+
+        @JsonProperty("refresh_token")
+        String refreshToken,
+
+        @JsonProperty("token_type")
+        String tokenType
+        ) {}

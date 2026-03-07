@@ -1,6 +1,8 @@
 package com.github.freddy.bankApi.scheduler;
 
 import com.github.freddy.bankApi.repository.RefreshTokenRepository;
+import com.github.freddy.bankApi.service.RefreshTokenService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,22 +22,15 @@ public class CleanRefreshTokenScheduler {
     private static final Logger log = LoggerFactory.getLogger(CleanRefreshTokenScheduler.class);
 
     private final RefreshTokenRepository refreshTokenRepository;
-
+    private final RefreshTokenService refreshTokenService;
     /**
      * Limpa todos os refresh tokens que expiraram antes da data atual.
      * Executa diariamente às 3:00 AM (horário do servidor).
      */
-    @Scheduled(cron = "0 0 3 * * ?")  // Todo dia às 03:00
+    @Scheduled(fixedDelay = 300000)
     public void cleanExpiredRefreshTokens() {
-        Instant now = Instant.now();
-        log.info("Iniciando limpeza de refresh tokens expirados - Data atual: {}", now);
-
-        int deletedCount = refreshTokenRepository.deleteExpired(now);
-
-        if (deletedCount > 0) {
-            log.info("Limpeza concluída: {} refresh tokens expirados removidos", deletedCount);
-        } else {
-            log.debug("Limpeza concluída: nenhum token expirado encontrado");
-        }
+        log.info("Iniciando limpeza de refresh tokens expirados");
+        int deletedCount = refreshTokenService.deleteExpiredTokens();
+        log.info("Tokens expirados removidos: {}", deletedCount);
     }
 }

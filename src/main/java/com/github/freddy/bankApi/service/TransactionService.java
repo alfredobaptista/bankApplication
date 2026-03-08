@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
@@ -228,4 +229,32 @@ public class TransactionService {
 
         return transactionRepository.save(tx);
     }
+
+
+
+    private void validateDailyLimit(String userId, BigDecimal newAmount) {
+        LocalDate today = LocalDate.now();
+
+        // Busca todas as transações do usuário no dia corrente
+        BigDecimal totalToday = transactionRepository.sumTransactionsByUserAndDate(
+                UUID.fromString(userId),
+                today.atStartOfDay(),
+                today.plusDays(1).atStartOfDay()
+        );
+
+        if (totalToday == null) {
+            totalToday = BigDecimal.ZERO;
+        }
+
+        BigDecimal projectedTotal = totalToday.add(newAmount);
+
+        if (projectedTotal.compareTo(DAILY_LIMIT) > 0) {
+            log.warn("Usuário {} excedeu limite diário: {} + {} > {}", userId, totalToday, newAmount, DAILY_LIMIT);
+            throw new IllegalStateException(
+                    String.format("Operação recusada. O limite diário de %s foi excedido. Já utilizou %s hoje.",
+                            DAILY_LIMIT, totalToday)
+            );
+        }
+    }
+
 }

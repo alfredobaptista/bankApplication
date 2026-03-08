@@ -28,49 +28,59 @@ public class WithdrawalCleanupService {
         LocalDateTime now = LocalDateTime.now();
         log.info("Iniciando limpeza de saques cardless expirados em {}", now);
 
-        // Busca apenas os PENDING expirados
-        List<CardlessWithdrawal> expiredWithdrawals = cardlessRepository.findAllExpired(now, WithdrawalStatus.PENDING);
-
+        List<CardlessWithdrawal> expiredWithdrawals = buscarSaquesExpirados(now);
         if (expiredWithdrawals.isEmpty()) {
             log.info("Nenhum saque cardless expirado encontrado.");
+            return;
         }
-        else {
-            log.info("Encontrados {} saques cardless expirados para limpeza", expiredWithdrawals.size());
 
-            // Coleta accountNumbers únicos
-            Set<String> accountNumbers = expiredWithdrawals.stream()
-                    .map(CardlessWithdrawal::getAccountNumber)
-                    .collect(Collectors.toSet());
+        Map<String, BigDecimal> valoresPorConta = agruparValoresPorConta(expiredWithdrawals);
+        List<Account> contas = buscarContasRelacionadas(valoresPorConta.keySet());
+        int contasAtualizadas = atualizarSaldos(contas, valoresPorConta);
 
-            // Busca contas (com lock pessimista se necessário)
-            List<Account> accounts = accountRepository.findAllByAccountNumberIn(accountNumbers);
+        salvarContas(contas);
+        removerSaquesExpirados(expiredWithdrawals);
 
-            // Agrupa o total a devolver por conta (se houver múltiplos saques na mesma conta)
-            Map<String, BigDecimal> amountToRefundByAccount = expiredWithdrawals.stream()
-                    .collect(Collectors.groupingBy(
-                            CardlessWithdrawal::getAccountNumber,
-                            Collectors.reducing(BigDecimal.ZERO, CardlessWithdrawal::getAmount, BigDecimal::add)
-                    ));
+        log.info("Limpeza concluída: {} contas atualizadas, {} saques removidos",
+                contasAtualizadas, expiredWithdrawals.size());
+    }
 
-            // Atualiza saldos (devolve o valor reservado)
-            int updatedCount = 0;
-            for (Account account : accounts) {
-                BigDecimal amountToRefund = amountToRefundByAccount.getOrDefault(account.getAccountNumber(), BigDecimal.ZERO);
-                if (amountToRefund.compareTo(BigDecimal.ZERO) > 0) {
-                    account.setAvailableBalance(account.getAvailableBalance().add(amountToRefund));
-                    updatedCount++;
-                    log.debug("Devolvendo {} ao saldo da conta {}", amountToRefund, account.getAccountNumber());
-                }
+    private List<CardlessWithdrawal> buscarSaquesExpirados(LocalDateTime agora) {
+        return cardlessRepository.findAllExpired(agora, WithdrawalStatus.PENDING);
+    }
+
+    private Map<String, BigDecimal> agruparValoresPorConta(List<CardlessWithdrawal> saques) {
+        return saques.stream()
+                .collect(Collectors.groupingBy(
+                        CardlessWithdrawal::getAccountNumber,
+                        Collectors.reducing(BigDecimal.ZERO, CardlessWithdrawal::getAmount, BigDecimal::add)
+                ));
+    }
+
+    private List<Account> buscarContasRelacionadas(Set<String> numerosConta) {
+        return accountRepository.findAllByAccountNumberIn(numerosConta);
+    }
+
+    private int atualizarSaldos(List<Account> contas, Map<String, BigDecimal> valoresPorConta) {
+        int atualizadas = 0;
+        for (Account conta : contas) {
+            BigDecimal valor = valoresPorConta.getOrDefault(conta.getAccountNumber(), BigDecimal.ZERO);
+            if (valor.compareTo(BigDecimal.ZERO) > 0) {
+                conta.setAvailableBalance(conta.getAvailableBalance().add(valor));
+                atualizadas++;
+                log.debug("Devolvendo {} ao saldo da conta {}", valor, conta.getAccountNumber());
             }
-            // Salva as contas actualizadas (batch)
-            if (!accounts.isEmpty()) {
-                accountRepository.saveAll(accounts);
-            }
-            cardlessRepository.deleteAll(expiredWithdrawals);
-
-            log.info("Limpeza concluída: {} contas atualizadas, {} saques removidos/marcados como expirados",
-                    updatedCount, expiredWithdrawals.size());
-
         }
+        return atualizadas;
+    }
+
+    private void salvarContas(List<Account> contas) {
+        if (!contas.isEmpty()) {
+            accountRepository.saveAll(contas);
+        }
+    }
+
+    private void removerSaquesExpirados(List<CardlessWithdrawal> saques) {
+        cardlessRepository.deleteAll(saques);
     }
 }

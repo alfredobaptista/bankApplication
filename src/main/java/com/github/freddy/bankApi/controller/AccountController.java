@@ -32,22 +32,10 @@ public class AccountController {
             @PathVariable String number,
             HttpServletRequest request
     ) {
-
         log.info("Staff consultando conta: {}", number);
         AccountResponse response = accountService.getAccount(number);
-
-        return ResponseEntity.ok(
-                new ApiResponse<>(
-                        true,
-                        "Conta recuperada com sucesso",
-                        response,
-                        null,
-                        request.getRequestURI(),
-                        OffsetDateTime.now()
-                )
-        );
+        return okResponse("Conta recuperada com sucesso", response, request.getRequestURI());
     }
-
 
     @PreAuthorize("hasRole('CUSTOMER')")
     @GetMapping("/balance")
@@ -58,27 +46,31 @@ public class AccountController {
         String userId = jwt.getSubject();
         log.debug("Cliente {} consultando saldo", userId);
         BalanceResponse balance = accountService.getBalance(userId);
+        return okResponse("Consulta de saldo efectuada com sucesso", balance, request.getRequestURI());
+    }
+
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    @PatchMapping("/{number}/status")
+    public ResponseEntity<ApiResponse<Void>> updateStatus(
+            @PathVariable String number,
+            @RequestBody @Valid UpdateStatusRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        log.info("Atualizando status da conta {} para {}", number, request.status());
+        accountService.changeStatusAccount(number, request.status());
+        return okResponse("Status da conta atualizado com sucesso", null, httpRequest.getRequestURI());
+    }
+
+    private <T> ResponseEntity<ApiResponse<T>> okResponse(String message, T data, String path) {
         return ResponseEntity.ok(
                 new ApiResponse<>(
                         true,
-                        "Consulta de saldo efectuada com sucesso",
-                        balance,
+                        message,
+                        data,
                         null,
-                        request.getRequestURI(),
+                        path,
                         OffsetDateTime.now()
                 )
         );
-    }
-
-    // Atualizar status da conta (staff ou admin)
-    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
-    @PatchMapping("/{number}/status")
-    public ResponseEntity<Void> updateStatus(
-            @PathVariable String number,
-            @RequestBody @Valid UpdateStatusRequest request) {
-        log.info("Atualizando status da conta {} para {}", number, request.status());
-        accountService.changeStatusAccount(number, request.status());
-
-        return ResponseEntity.noContent().build();
     }
 }

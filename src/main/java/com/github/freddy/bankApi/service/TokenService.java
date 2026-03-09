@@ -34,7 +34,7 @@ public class TokenService {
         Instant now = Instant.now();
         Instant expiration = now.plusSeconds(acessTokenExpiration);
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer("bankApi")
+                .issuer("bank-api")
                 .subject(user.getId().toString())
                 .issuedAt(now)
                 .expiresAt(expiration)

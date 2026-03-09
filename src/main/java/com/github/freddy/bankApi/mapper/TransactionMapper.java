@@ -9,7 +9,7 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 
 import java.math.BigDecimal;
-import java.util.List;
+
 
 @Mapper(componentModel = "spring")
 public interface TransactionMapper {

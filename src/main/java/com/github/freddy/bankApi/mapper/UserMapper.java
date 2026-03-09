@@ -23,12 +23,17 @@ public abstract class UserMapper {
 
     @Autowired
     protected PasswordEncoder passwordEncoder;
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "account", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "name", expression = "java(request.clientName())")
     @Mapping(target = "email", expression = "java(request.email())")
     @Mapping(target = "bi", expression = "java(request.biNumber().toUpperCase())")
     @Mapping(target = "phoneNumber", source = "phoneNumber", qualifiedByName = "normalizePhone")
     @Mapping(target = "password", expression = "java(passwordEncoder.encode(request.password()))")
     @Mapping(target = "role", constant = "ROLE_CUSTOMER")
+
     public abstract User toEntity(RegisterRequest request);
 
     @Mapping(target = "email", expression = "java(request.email())")

@@ -43,8 +43,6 @@ public class TransactionService {
     private final CardLessMapper cardLessMapper;
 
     private final CardlessConfig config;
-    private static final BigDecimal DAILY_LIMIT = new BigDecimal("120000.00");
-
 
     /**
      * Realiza uma transferência entre contas.
@@ -148,11 +146,6 @@ public class TransactionService {
     }
 
 
-    private void ensureSufficientFunds(BigDecimal currentBalance, BigDecimal withdrawalAmount) {
-        if (currentBalance.compareTo(withdrawalAmount) < 0) {
-            throw new InsufficientBalanceException("Saldo insuficiente");
-        }
-    }
     // Levantamento sem cartao
     @Transactional
     public CardlessWithdrawResponse cardlessWithdraw(
@@ -184,10 +177,11 @@ public class TransactionService {
         return new CardlessWithdrawResponse(cw.getReferenceCode(),  cw.getAmount());
     }
 
-    //Cancelar um levantamento sem cartaoa
-    public void cancelCardlessWithDrawal(Long cwId, String userId) {
+    //Cancelar um levantamento sem cartao
+    @Transactional
+    public void cancelCardlessWithDrawal(String referenceCode, String userId) {
         var withdrawal = cardlessRepository
-                .findById(cwId)
+                .findByReferenceCode(referenceCode)
                 .orElseThrow(
                         () -> new NotFoundException("Levantamento não existente")
                 );
@@ -200,7 +194,7 @@ public class TransactionService {
         accountRepository.save(account);
     }
 
-    // Validações para transferência
+    // Validações para transferência, verifc
     private void validateTransfer(Account source, BigDecimal amount, String destinationNumber) {
         if (source.getAccountNumber().equals(destinationNumber)) {
             throw new ConflictException("Não é permitido transferir para a própria conta");
@@ -211,7 +205,7 @@ public class TransactionService {
         }
     }
 
-    // Salva transação
+    // Cria e salva uma nova transaçao no banco
     private Transaction saveTransaction(
             Account destination, Account source, BigDecimal amount,
             TransactionType type, TransactionStatus status, String description
@@ -230,32 +224,18 @@ public class TransactionService {
     }
 
 
-
-    private void validateDailyLimit(String userId, BigDecimal newAmount) {
-        LocalDate today = LocalDate.now();
-        // Busca todas as transações do utilizador no dia corrente
-        BigDecimal totalToday = transactionRepository.sumTransactionsByUserAndDate(
-                UUID.fromString(userId),
-                today.atStartOfDay(),
-                today.plusDays(1).atStartOfDay()
-        );
-
-        if (totalToday == null) {
-            totalToday = BigDecimal.ZERO;
-        }
-
-        if (totalToday.compareTo(config.getDailyLimit()) == 0) {
-            log.warn("Utilizador {} excedeu limite diário: {} + {} > {}", userId, totalToday, newAmount, DAILY_LIMIT);
-            throw new BusinessLogicException(
-                    "Operação recusada. O limite diário excedido."
-            );
-        }
-    }
-
+    //Gera o codigo de refrencia com ate 8 digitos
     private String generatedReferenceCode() {
         return String.format(
                 "%08d", new Random().nextInt(100000000)
         );
+    }
+
+    //Verifica se ytem saldo suficiente na conta
+    private void ensureSufficientFunds(BigDecimal currentBalance, BigDecimal withdrawalAmount) {
+        if (currentBalance.compareTo(withdrawalAmount) < 0) {
+            throw new InsufficientBalanceException("Saldo insuficiente");
+        }
     }
 
 }

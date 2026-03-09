@@ -12,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -106,7 +108,7 @@ public class TransactionController {
      * - O usuário logado deve ser o dono da conta
      * - Retorna o novo saldo da conta
      */
-    @PostMapping("/withdraw")
+    @PostMapping("/withdrawals")
     public ResponseEntity<ApiResponse<CardlessWithdrawResponse>> withdraw(
             @Valid @RequestBody CardlessWithdrawRequest dto,
             @AuthenticationPrincipal Jwt jwt,
@@ -130,18 +132,17 @@ public class TransactionController {
         );
     }
 
-
-    @GetMapping("/withdraw")
+    @GetMapping("/withdrawals")
     public void listAllCardless(@AuthenticationPrincipal Jwt jwt) {
         String userId = jwt.getSubject();
     }
 
-    @PostMapping("/withdraw/{id}/cancel")
+    @PostMapping("/withdrawals/{referenceCode}/cancel")
     public  ResponseEntity<Void> cancelWithDrawal(
-            @PathVariable Long id,
+            @PathVariable String referenceCode,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        transactionService.cancelCardlessWithDrawal(id, jwt.getSubject());
+        transactionService.cancelCardlessWithDrawal(referenceCode, jwt.getSubject());
         return ResponseEntity.noContent().build();
     }
 
@@ -153,11 +154,14 @@ public class TransactionController {
     @PreAuthorize("hasRole('CUSTOMER')")
     @GetMapping()
     public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHistory(
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt,desc") String sort,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest request
     ) {
         String userId = jwt.getSubject();
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<TransactionResponse> history = transactionService
                 .listTransactions(userId, pageable);
         var response = new ApiResponse<>(

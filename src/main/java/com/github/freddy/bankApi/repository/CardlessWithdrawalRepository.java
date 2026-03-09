@@ -21,4 +21,5 @@ public interface CardlessWithdrawalRepository extends JpaRepository<CardlessWith
             @Param("now") LocalDateTime now,
             @Param("status") WithdrawalStatus status
     );
+
 }

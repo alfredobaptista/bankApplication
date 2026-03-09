@@ -1,8 +1,8 @@
 package com.github.freddy.bankApi.controller;
 
-import com.github.freddy.bankApi.dto.request.AtmCompleteCardlessRequest;
+import com.github.freddy.bankApi.dto.request.AtmCardlessRequest;
 import com.github.freddy.bankApi.dto.response.ApiResponse;
-import com.github.freddy.bankApi.dto.response.AtmCompleteResponse;
+import com.github.freddy.bankApi.dto.response.AtmCardlessResponse;
 import com.github.freddy.bankApi.service.AtmService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +21,11 @@ public class AtmController {
     private final AtmService atmService;
 
     @PostMapping("/cardless")
-    public ResponseEntity<ApiResponse<AtmCompleteResponse>> completeCardless(
-            @RequestBody AtmCompleteCardlessRequest dto,
+    public ResponseEntity<ApiResponse<AtmCardlessResponse>> completeCardless(
+            @RequestBody AtmCardlessRequest dto,
             HttpServletRequest request
     ) {
-        AtmCompleteResponse response = atmService.completeCardlessWithdrawAtAtm(dto);
+        AtmCardlessResponse response = atmService.cardlessWithdrawAtAtm(dto);
         return ResponseEntity.ok(
                 new ApiResponse(
                         true,

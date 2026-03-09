@@ -15,6 +15,5 @@ public class CardlessConfig {
 
     private int expiryTime;
 
-    private BigDecimal dailyLimit;
 
 }

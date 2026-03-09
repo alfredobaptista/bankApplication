@@ -8,6 +8,8 @@ import com.github.freddy.bankApi.dto.response.ApiResponse;
 import com.github.freddy.bankApi.dto.response.AuthTokensResponse;
 import com.github.freddy.bankApi.dto.response.RegistrationResponse;
 import com.github.freddy.bankApi.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+@Tag(name = "Auth", description = "Endpoints de autenticação")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -66,12 +69,14 @@ public class AuthController {
                 );
     }
 
-    /**
-     * Autentica o usuário e retorna access token + refresh token.
-     */
+    @Operation(
+            summary = "Login do utilizador",
+            description = "Autentica utilizador e retorna token JWT"
+    )
+
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthTokensResponse>> login(
-            @Valid @RequestBody LoginRequest data,
+            @RequestBody @Valid LoginRequest data,
             HttpServletRequest request
     ) {
         log.debug("Requisição de login: email={}", data.email());

@@ -5,6 +5,7 @@ import com.github.freddy.bankApi.dto.request.DepositRequest;
 import com.github.freddy.bankApi.dto.response.*;
 import com.github.freddy.bankApi.dto.request.TransferRequest;
 import com.github.freddy.bankApi.service.TransactionService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +26,11 @@ import java.util.List;
  * Controller para operações de transações bancárias.
  * Todos os endpoints exigem autenticação JWT e verificam propriedade da conta.
  */
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/v1/transactions")
 @RequiredArgsConstructor
 public class TransactionController {
-
     private static final Logger log = LoggerFactory.getLogger(TransactionController.class);
 
     private final TransactionService transactionService;
@@ -101,7 +102,7 @@ public class TransactionController {
     }
 
     /**
-     * Realiza um levantamento  da conta especificada.
+     * Realiza um levantamento sem cartçao da conta especificada.
      * - O usuário logado deve ser o dono da conta
      * - Retorna o novo saldo da conta
      */
@@ -129,6 +130,12 @@ public class TransactionController {
         );
     }
 
+
+    @GetMapping("/withdraw")
+    public void listAllCardless(@AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
+    }
+
     @PostMapping("/withdraw/{id}/cancel")
     public  ResponseEntity<Void> cancelWithDrawal(
             @PathVariable Long id,
@@ -146,7 +153,6 @@ public class TransactionController {
     @PreAuthorize("hasRole('CUSTOMER')")
     @GetMapping()
     public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHistory(
-            @PathVariable String accountNumber,
             Pageable pageable,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest request

@@ -1,18 +1,18 @@
 package com.github.freddy.bankApi.service;
 
+import com.github.freddy.bankApi.config.CardlessConfig;
 import com.github.freddy.bankApi.dto.request.CardlessWithdrawRequest;
 import com.github.freddy.bankApi.dto.response.*;
 import com.github.freddy.bankApi.dto.request.TransferRequest;
 import com.github.freddy.bankApi.entity.Account;
 import com.github.freddy.bankApi.entity.CardlessWithdrawal;
 import com.github.freddy.bankApi.entity.Transaction;
+import com.github.freddy.bankApi.enums.AccountStatus;
 import com.github.freddy.bankApi.enums.TransactionStatus;
 import com.github.freddy.bankApi.enums.TransactionType;
 import com.github.freddy.bankApi.enums.WithdrawalStatus;
-import com.github.freddy.bankApi.exception.ConflictException;
-import com.github.freddy.bankApi.exception.InsufficientBalanceException;
-import com.github.freddy.bankApi.exception.NotFoundException;
-import com.github.freddy.bankApi.exception.UnauthorizedException;
+import com.github.freddy.bankApi.exception.*;
+import com.github.freddy.bankApi.mapper.CardLessMapper;
 import com.github.freddy.bankApi.mapper.TransactionMapper;
 import com.github.freddy.bankApi.repository.AccountRepository;
 import com.github.freddy.bankApi.repository.CardlessWithdrawalRepository;
@@ -22,30 +22,29 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Random;
 import java.util.UUID;
-
 
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
     private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
-    private static final BigDecimal DAILY_LIMIT = new BigDecimal("120000.00");
-
 
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
     private final CardlessWithdrawalRepository cardlessRepository;
+    private final CardLessMapper cardLessMapper;
+
+    private final CardlessConfig config;
+    private static final BigDecimal DAILY_LIMIT = new BigDecimal("120000.00");
+
 
     /**
      * Realiza uma transferência entre contas.
@@ -97,16 +96,25 @@ public class TransactionService {
             String userId
     ) {
         log.info("Depósito solicitado - Conta: {}, Valor: {}, Funcionario ID: {}", accountNumber, amount, userId);
+
         Account account = accountRepository.findByAccountNumberForUpdate(accountNumber)
                 .orElseThrow(() -> new NotFoundException("Conta não encontrada"));
+
         if (!account.getUser().getBi().equals(biNumber)) {
             log.warn("Tentativa não autorizada de depósito na conta {}", accountNumber);
-            throw new UnauthorizedException("Você não tem permissão para operar esta conta");
+            throw new UnauthorizedException("Número de bilhete inválido");
         }
+
+        if(account.getStatus() != AccountStatus.ACTIVE) {
+            log.warn("Tentativa de deposito em conta não activada");
+            throw new UnauthorizedException("Conta não esta activada");
+        }
+
         account.setLedgerBalance(account.getLedgerBalance().add(amount));
         account.setAvailableBalance(account.getAvailableBalance().add(amount));
         Account updated = accountRepository.save(account);
-        var transaction = saveTransaction(account, null, amount,
+
+        var transaction = saveTransaction(null, account, amount,
                 TransactionType.DEPOSIT,
                 TransactionStatus.COMPLETED,
                 "Depósito em numerário");
@@ -139,6 +147,12 @@ public class TransactionService {
         return transactions.map(transactionMapper::toResponse);
     }
 
+
+    private void ensureSufficientFunds(BigDecimal currentBalance, BigDecimal withdrawalAmount) {
+        if (currentBalance.compareTo(withdrawalAmount) < 0) {
+            throw new InsufficientBalanceException("Saldo insuficiente");
+        }
+    }
     // Levantamento sem cartao
     @Transactional
     public CardlessWithdrawResponse cardlessWithdraw(
@@ -148,25 +162,12 @@ public class TransactionService {
         Account account = accountRepository
                 .findByUserIdForUpdate(UUID.fromString(userId))
                 .orElseThrow(() -> new NotFoundException("Conta não encontrada"));
-
-        if (account.getAvailableBalance().compareTo(cardDto.amount()) < 0) {
-            throw new InsufficientBalanceException("Saldo disponivel insuficiente");
-        }
-        String referenceCode = String.format(
-                "%08d", new Random().nextInt(100000000)
-        );
-        CardlessWithdrawal cw = new CardlessWithdrawal();
-        cw.setUserId(UUID.fromString(userId));
-        cw.setAccountNumber(account.getAccountNumber());
-        cw.setAmount(cardDto.amount());
-        cw.setReferenceCode(referenceCode);
-        cw.setSecretCode(cardDto.secretCode());
-        cw.setStatus(WithdrawalStatus.PENDING);
-
+        ensureSufficientFunds(account.getAvailableBalance(), cardDto.amount());
+        String referenceCode = generatedReferenceCode();
+        CardlessWithdrawal cw = cardLessMapper.toEntity(account,cardDto,UUID.fromString(userId), referenceCode);
         //Durçao de validdae do codigo
-        cw.setExpiry(LocalDateTime.now().plusMinutes(3));
+        cw.setExpiry(LocalDateTime.now().plusMinutes(config.getExpiryTime()));
         cw = cardlessRepository.save(cw);
-
         // Reserva o valor temporariamente
         account.setAvailableBalance(
                 account.getAvailableBalance().subtract(cardDto.amount())
@@ -183,6 +184,7 @@ public class TransactionService {
         return new CardlessWithdrawResponse(cw.getReferenceCode(),  cw.getAmount());
     }
 
+    //Cancelar um levantamento sem cartaoa
     public void cancelCardlessWithDrawal(Long cwId, String userId) {
         var withdrawal = cardlessRepository
                 .findById(cwId)
@@ -191,10 +193,11 @@ public class TransactionService {
                 );
         var account = accountRepository
                 .findByUserIdForUpdate(UUID.fromString(userId))
-                .orElseThrow(() -> new NotFoundException("Levantamneto não existente"));
+                .orElseThrow(() -> new NotFoundException("Levantamento não existente"));
         withdrawal.setStatus(WithdrawalStatus.CANCELLED);
         cardlessRepository.save(withdrawal);
         account.setAvailableBalance(account.getAvailableBalance().add(withdrawal.getAmount()));
+        accountRepository.save(account);
     }
 
     // Validações para transferência
@@ -205,10 +208,6 @@ public class TransactionService {
 
         if (source.getLedgerBalance().compareTo(amount) < 0) {
             throw new InsufficientBalanceException("Saldo insuficiente");
-        }
-        // Limite diário (exemplo simples - podes melhorar com soma real do dia)
-        if (amount.compareTo(DAILY_LIMIT) > 0) {
-            throw new IllegalStateException("Valor excede limite diário de transferência");
         }
     }
 
@@ -234,8 +233,7 @@ public class TransactionService {
 
     private void validateDailyLimit(String userId, BigDecimal newAmount) {
         LocalDate today = LocalDate.now();
-
-        // Busca todas as transações do usuário no dia corrente
+        // Busca todas as transações do utilizador no dia corrente
         BigDecimal totalToday = transactionRepository.sumTransactionsByUserAndDate(
                 UUID.fromString(userId),
                 today.atStartOfDay(),
@@ -246,15 +244,18 @@ public class TransactionService {
             totalToday = BigDecimal.ZERO;
         }
 
-        BigDecimal projectedTotal = totalToday.add(newAmount);
-
-        if (projectedTotal.compareTo(DAILY_LIMIT) > 0) {
-            log.warn("Usuário {} excedeu limite diário: {} + {} > {}", userId, totalToday, newAmount, DAILY_LIMIT);
-            throw new IllegalStateException(
-                    String.format("Operação recusada. O limite diário de %s foi excedido. Já utilizou %s hoje.",
-                            DAILY_LIMIT, totalToday)
+        if (totalToday.compareTo(config.getDailyLimit()) == 0) {
+            log.warn("Utilizador {} excedeu limite diário: {} + {} > {}", userId, totalToday, newAmount, DAILY_LIMIT);
+            throw new BusinessLogicException(
+                    "Operação recusada. O limite diário excedido."
             );
         }
+    }
+
+    private String generatedReferenceCode() {
+        return String.format(
+                "%08d", new Random().nextInt(100000000)
+        );
     }
 
 }

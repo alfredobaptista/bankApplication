@@ -18,7 +18,7 @@ Uma aplicação **backend** robusta que implementa as funcionalidades essenciais
 - **CRUD** completo de usuários, contas e transações (com validação @Valid)
 - Operações financeiras:
     - Depósitos
-    - Levantamentos (Levantamentos cardless incluídos)
+    - Levantamentos (Somente Levantamentos cardless incluídos)
     - Transferências internas
     - Histórico paginado e filtrado de transações
 - Controle rigoroso de **saldo** (não permite saldo negativo)
@@ -102,7 +102,6 @@ java -jar target/banking-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
 http://localhost:8080/swagger-ui.html
 # ou
 http://localhost:8080/swagger-ui/index.html
-
 ```
 
 ## 🔐 Endpoints Principais
@@ -130,25 +129,24 @@ docker build -t banking-api:latest .
 
 # Executar
 docker-compose up --build
-
 ```
 
 ## 🧪 Testes
 
 ### Executar todos os testes (unitários + integração)
+```bash
 mvn test
+```
 
 ### Apenas testes de integração (se tiveres profile configurado)
+```bash
 mvn test -P integration
-
+```
 ## 📸 Capturas de Ecrã
+
 ![Swagger UI](/docs/images/swegger.PNG)
 
 ![Exemplo de Transação](/docs//images/transaction.PNG)
-
-## 📄 Licença
-
-MIT License — veja o ficheiro [LICENSE](LICENSE) para mais detalhes.
 
 ## 👤 Autor
 

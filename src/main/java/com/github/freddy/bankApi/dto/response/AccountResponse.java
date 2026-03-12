@@ -6,6 +6,7 @@ import com.github.freddy.bankApi.enums.AccountType;
 import java.math.BigDecimal;
 
 public record AccountResponse(
+        String userName,
         String accountNumber,
         BigDecimal availableBalance,
         BigDecimal leadgerBalance,

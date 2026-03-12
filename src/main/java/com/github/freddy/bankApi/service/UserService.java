@@ -159,7 +159,14 @@ public class UserService {
         log.info("Senha atualizada com sucesso para usuário ID: {}", userId);
     }
 
-   /* public Page<UserProfileResponse> listUsers(Pageable pageable, String role, String bi) {
-
-    }*/
+    public Page<UserProfileResponse> listUsers(Pageable pageable, String role, String bi, String status) {
+        Page<User> users = userRepository.findByFilters(role, bi, status, pageable);
+        return users.map(user -> new UserProfileResponse(
+                user.getId(),
+                user.getName(),
+                user.getBi(),
+                user.getPhoneNumber(),
+                user.getRole()
+        ));
+    }
 }

@@ -7,6 +7,7 @@ import com.github.freddy.bankApi.entity.User;
 import com.github.freddy.bankApi.enums.AccountStatus;
 import com.github.freddy.bankApi.enums.AccountType;
 import com.github.freddy.bankApi.exception.AccountCreationException;
+import com.github.freddy.bankApi.exception.InsufficientBalanceException;
 import com.github.freddy.bankApi.exception.InvalidAccountStatusException;
 import com.github.freddy.bankApi.exception.NotFoundException;
 import com.github.freddy.bankApi.mapper.AccountMapper;
@@ -22,7 +23,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.UUID;
-
 
 /**
  * Serviço responsável por operações relacionadas a contas bancárias.
@@ -46,19 +46,10 @@ public class AccountService {
     @Transactional
     public AccountResponse createDefaultAccount(User user, AccountType typeAccount) {
         log.info("Criando conta padrão para utilizador: {} (ID: {}) - Tipo: {}", user.getName(), user.getId(), typeAccount);
-        Account newAccount = Account.builder()
-                .user(user)
-                .availableBalance(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
-                .ledgerBalance(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
-                .status(AccountStatus.ACTIVE)
-                .accountType(typeAccount)
-                .currencyCode("AOA")
-                .build();
-
+        Account newAccount = accountMapper.toEntity(user, typeAccount);
         // Gera número único
         Long sequenceNumber = accountRepository.getNextSequenceValue();
         String accountNumber = AccountNumberUtil.generateAccountNumber(sequenceNumber);
-
         // Verificação extra de unicidade
         if (accountRepository.existsByAccountNumber(accountNumber)) {
             log.error("Conflito inesperado: número de conta {} já existe", accountNumber);
@@ -86,11 +77,7 @@ public class AccountService {
         var account = accountRepository.findByUserId(UUID.fromString(userId))
                 .orElseThrow(() -> new NotFoundException(
                         "Conta não encontrada"));
-        return new BalanceResponse(
-                account.getAccountNumber(),
-                account.getLedgerBalance(),
-                account.getAvailableBalance(),
-                account.getCurrencyCode());
+       return accountMapper.toBalanceResponse(account);
     }
 
     /**
@@ -103,22 +90,44 @@ public class AccountService {
         return accountMapper.toResponse(account);
     }
 
+    public Account getAccountForUpdate(String accountNumber) {
+        return accountRepository.findByAccountNumberForUpdate(accountNumber)
+                .orElseThrow(() -> new NotFoundException("Conta não encontrada"));
+    }
+
+    public void withdraw(Account account, BigDecimal amount) {
+
+        if (account.getLedgerBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Saldo insuficiente");
+        }
+
+        account.setLedgerBalance(account.getLedgerBalance().subtract(amount));
+    }
+
     /**
      * Altera o status da conta (com lock pessimista para evitar concorrência).
      */
     @Transactional
     public void changeStatusAccount(String accountNumber, AccountStatus newStatus) {
+
         Account account = accountRepository.findByAccountNumberForUpdate(accountNumber)
                 .orElseThrow(() -> new NotFoundException(
                         "Conta com número " + accountNumber + " não encontrada"));
+
         log.info("Alterando status da conta {} de {} para {}",
                 accountNumber, account.getStatus(), newStatus);
-        // Validação simples de transição
-        if (account.getStatus() == AccountStatus.BLOCKED && newStatus != AccountStatus.ACTIVE) {
-            throw new InvalidAccountStatusException("Conta bloqueada só pode ser reactivada para ACTIVE");
+
+        if (account.getStatus() == newStatus) {
+            return;
         }
+
+        if (account.getStatus() == AccountStatus.BLOCKED && newStatus != AccountStatus.ACTIVE) {
+            throw new InvalidAccountStatusException(
+                    "Conta bloqueada só pode ser reativada para ACTIVE");
+        }
+
         account.setStatus(newStatus);
-        accountRepository.save(account);
+
         log.info("Status da conta {} alterado com sucesso para {}", accountNumber, newStatus);
     }
 }

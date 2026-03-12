@@ -145,6 +145,10 @@ public class TransactionService {
         return transactions.map(transactionMapper::toResponse);
     }
 
+    public Page<CardlessWithdrawalDetailsResponse> listCardlessWithdrawalDetails(String userId,  Pageable pageable) {
+        Page<CardlessWithdrawal> cardlessWithdrawals = cardlessRepository.findAllByUserId(pageable, UUID.fromString(userId));
+        return cardlessWithdrawals.map(cardLessMapper::toResponse);
+    }
 
     // Levantamento sem cartao
     @Transactional
@@ -177,6 +181,24 @@ public class TransactionService {
         return new CardlessWithdrawResponse(cw.getReferenceCode(),  cw.getAmount());
     }
 
+    public Transaction createWithdrawalTransaction(
+            Account account,
+            BigDecimal amount,
+            String reference
+    ) {
+
+        Transaction transaction = Transaction.builder()
+                .sourceAccount(account)
+                .amount(amount)
+                .type(TransactionType.WITHDRAWAL)
+                .status(TransactionStatus.COMPLETED)
+                .description("Levantamento ATM | Ref: " + reference)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        return transactionRepository.save(transaction);
+    }
+
     //Cancelar um levantamento sem cartao
     @Transactional
     public void cancelCardlessWithDrawal(String referenceCode, String userId) {
@@ -193,6 +215,7 @@ public class TransactionService {
         account.setAvailableBalance(account.getAvailableBalance().add(withdrawal.getAmount()));
         accountRepository.save(account);
     }
+
 
     // Validações para transferência, verifc
     private void validateTransfer(Account source, BigDecimal amount, String destinationNumber) {

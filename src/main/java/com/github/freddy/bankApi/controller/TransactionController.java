@@ -104,7 +104,7 @@ public class TransactionController {
     }
 
     /**
-     * Realiza um levantamento sem cartçao da conta especificada.
+     * Realiza um levantamento sem cartão da conta especificada.
      * - O usuário logado deve ser o dono da conta
      * - Retorna o novo saldo da conta
      */
@@ -133,8 +133,33 @@ public class TransactionController {
     }
 
     @GetMapping("/withdrawals")
-    public void listAllCardless(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<ApiResponse<List<CardlessWithdrawalDetailsResponse>>> listAllCardless(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal Jwt jwt,
+            HttpServletRequest request
+    ) {
         String userId = jwt.getSubject();
+        Pageable pageable = PageRequest.of(page, size);
+        Page<CardlessWithdrawalDetailsResponse> list = transactionService
+                .listCardlessWithdrawalDetails(userId, pageable);
+
+        return  ResponseEntity.ok(
+                new ApiResponse<List<CardlessWithdrawalDetailsResponse>>(
+                true,
+                "Lista de levantamentos sem cartão",
+               list.getContent(),
+                        new ApiResponse.PaginationMeta(
+                       list.getNumber(),
+                        list.getSize(),
+                        list.getTotalElements(),
+                        list.getTotalPages(),
+                        list.hasNext(),
+                        list.getPageable().hasPrevious()
+                        ),
+                request.getRequestURI(),
+                OffsetDateTime.now()
+                ));
     }
 
     @PostMapping("/withdrawals/{referenceCode}/cancel")
@@ -181,6 +206,8 @@ public class TransactionController {
         );
         return ResponseEntity.ok(response);
     }
+
+
 
 
     /*

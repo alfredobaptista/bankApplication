@@ -1,6 +1,7 @@
 package com.github.freddy.bankApi.mapper;
 
 import com.github.freddy.bankApi.dto.request.CardlessWithdrawRequest;
+import com.github.freddy.bankApi.dto.response.CardlessWithdrawalDetailsResponse;
 import com.github.freddy.bankApi.entity.Account;
 import com.github.freddy.bankApi.entity.CardlessWithdrawal;
 import com.github.freddy.bankApi.enums.WithdrawalStatus;
@@ -24,4 +25,5 @@ public interface CardLessMapper {
     })
     CardlessWithdrawal toEntity(Account account, CardlessWithdrawRequest dto, UUID userId, String referenceCode);
 
+    CardlessWithdrawalDetailsResponse toResponse(CardlessWithdrawal entity);
 }

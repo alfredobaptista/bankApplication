@@ -44,14 +44,4 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
             @Param("count") Long count
     );
 
-    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
-            "WHERE t.sourceAccount.user.id = :userId " +
-            "AND t.createdAt >= :start AND t.createdAt < :end " +
-            "AND t.status = 'COMPLETED'")
-    BigDecimal sumTransactionsByUserAndDate(
-            @Param("userId") UUID userId,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
-    );
-
 }

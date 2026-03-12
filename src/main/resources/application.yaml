@@ -17,3 +17,12 @@ security:
       expiration: 600
     refresh-token:
       expiration: 20000
+
+scheduler:
+  fraud-scan: 300000
+  token-clean: 300000
+
+fraud:
+  threshold: 20000.00
+  transaction-count: 3
+  window-minutes: 5

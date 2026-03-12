@@ -12,7 +12,9 @@ import org.springframework.context.annotation.Configuration;
         info = @Info(
                 title = "Bank API",
                 version = "1.0",
-                description = "API de serviços bancários"
+                description = """
+                        API de serviços bancários segura e escalável.
+                        """
         ),
         servers = {
                 @Server(url = "http://localhost:8080", description = "Servidor local")

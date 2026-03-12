@@ -27,13 +27,13 @@ public class AccountController {
     private final AccountService accountService;
 
     @PreAuthorize("hasRole('STAFF')")
-    @GetMapping("/{number}")
-    public ResponseEntity<ApiResponse<AccountResponse>> getAccount(
-            @PathVariable String number,
+    @GetMapping("/{accountNumber}")
+    public ResponseEntity<ApiResponse<AccountResponse>> getAccountDetails(
+            @PathVariable String accountNumber,
             HttpServletRequest request
     ) {
-        log.info("Staff consultando conta: {}", number);
-        AccountResponse response = accountService.getAccount(number);
+        log.info("Staff consultando conta: {}", accountNumber);
+        AccountResponse response = accountService.getAccount(accountNumber);
         return okResponse("Conta recuperada com sucesso", response, request.getRequestURI());
     }
 

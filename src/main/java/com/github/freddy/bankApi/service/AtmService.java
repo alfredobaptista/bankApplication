@@ -22,66 +22,37 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AtmService {
 
     private final CardlessWithdrawalRepository cardlessRepository;
-    private final AccountRepository accountRepository;
-    private final TransactionRepository transactionRepository;
+    private final AccountService accountService;
+    private final TransactionService transactionService;
 
-    /**
-     * Simula o processamento de um levantamento sem cartão diretamente no ATM.
-     * Executado pelo "ATM" .
-     */
     @Transactional
     public AtmCardlessResponse cardlessWithdrawAtAtm(AtmCardlessRequest atmRequest) {
-        log.info(
-                "ATM - Iniciando processamento levantamento sem cartão | Referência: {}, " +
-                        "Código secreto fornecido: [protegido]",
-                atmRequest.referenceCode()
-        );
 
-        CardlessWithdrawal cw = cardlessRepository.findByReferenceCodeAndStatus(
-                        atmRequest.referenceCode(), WithdrawalStatus.PENDING)
+        CardlessWithdrawal cw = cardlessRepository
+                .findByReferenceCodeAndStatus(atmRequest.referenceCode(), WithdrawalStatus.PENDING)
                 .orElseThrow(() -> new NotFoundException("Código de referência inválido"));
 
-        //Busca conta com lock pessimista para evitar race conditions
-        Account account = accountRepository.findByAccountNumberForUpdate(cw.getAccountNumber())
-                .orElseThrow(() -> new NotFoundException("Conta associada não encontrada"));
+        Account account = accountService.getAccountForUpdate(cw.getAccountNumber());
 
         validateWithdrawal(cw, atmRequest.secretCode(), account);
 
-        if (account.getLedgerBalance().compareTo(cw.getAmount()) < 0) {
-            cw.setStatus(WithdrawalStatus.FAILED);
-            cardlessRepository.save(cw);
-            log.warn("Saldo disponível insuficiente | Conta: {}, Solicitado: {}, Disponível: {}",
-                    account.getAccountNumber(),
-                    cw.getAmount(),
-                    account.getAvailableBalance());
-            throw new InsufficientBalanceException("Saldo disponível insuficiente no momento do levantamento");
-        }
-        account.setLedgerBalance(account.getLedgerBalance().subtract(cw.getAmount()));
-        accountRepository.save(account);
-        // Regista a transação com detalhes do ATM
-        Transaction transaction = Transaction.builder()
-                .sourceAccount(account)
-                .destinationAccount(null)
-                .amount(cw.getAmount())
-                .type(TransactionType.WITHDRAWAL)
-                .status(TransactionStatus.COMPLETED)
-                .description("Levantamento sem cartão via ATM | Ref: " + cw.getReferenceCode())
-                .createdAt(LocalDateTime.now())
-                .build();
-        transactionRepository.save(transaction);
-        // Finaliza o pedido cardless
+        accountService.withdraw(account, cw.getAmount());
+
+        Transaction transaction = transactionService.createWithdrawalTransaction(
+                account,
+                cw.getAmount(),
+                cw.getReferenceCode()
+        );
+
         cw.setStatus(WithdrawalStatus.COMPLETED);
         cardlessRepository.save(cw);
 
-        log.info(
-                "ATM - Levantamento concluído com sucesso | Ref: {}, Valor: {}, Nova disponível: {}",
-                cw.getReferenceCode(), cw.getAmount(), account.getAvailableBalance());
         return new AtmCardlessResponse(
                 transaction.getId().toString(),
                 cw.getAmount(),
@@ -89,18 +60,19 @@ public class AtmService {
         );
     }
 
+
     private void validateWithdrawal(CardlessWithdrawal cw, String secretCode, Account account) {
-        // Verifica expiração
+
         if (cw.getExpiry().isBefore(LocalDateTime.now())) {
             cw.setStatus(WithdrawalStatus.EXPIRED);
-            account.setAvailableBalance(account.getAvailableBalance().add(cw.getAmount()));
+            account.setAvailableBalance(
+                    account.getAvailableBalance().add(cw.getAmount())
+            );
             cardlessRepository.save(cw);
-            log.warn("Tentativa de uso de código expirado | Ref: {}", cw.getReferenceCode());
+
             throw new InvalidReferenceCodeException("Levantamento expirado");
         }
-        //  Valida código secreto
         if (!cw.getSecretCode().equals(secretCode)) {
-            log.warn("Código secreto incorreto para ref: {}", cw.getReferenceCode());
             throw new InvalidReferenceCodeException("Código inválido");
         }
     }

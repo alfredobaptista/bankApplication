@@ -1,13 +1,16 @@
 package com.github.freddy.bankApi.controller;
 
+import com.github.freddy.bankApi.docs.AccountControllerDocs;
 import com.github.freddy.bankApi.dto.UpdateStatusRequest;
 import com.github.freddy.bankApi.dto.response.AccountResponse;
-import com.github.freddy.bankApi.dto.response.ApiResponse;
+import com.github.freddy.bankApi.dto.response.ApiResponseDTO;
 import com.github.freddy.bankApi.dto.response.BalanceResponse;
 import com.github.freddy.bankApi.service.AccountService;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,21 +18,17 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import java.time.OffsetDateTime;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.*;
-
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/accounts")
 @RequiredArgsConstructor
-public class AccountController {
+public class AccountController implements AccountControllerDocs {
 
     private final AccountService accountService;
-
     @PreAuthorize("hasRole('STAFF')")
     @GetMapping("/{accountNumber}")
-    public ResponseEntity<ApiResponse<AccountResponse>> getAccountDetails(
-            @PathVariable String accountNumber,
+    public ResponseEntity<ApiResponseDTO<AccountResponse>> getAccountDetails(
+            @Parameter(description = "Número da conta a ser consultada") @PathVariable String accountNumber,
             HttpServletRequest request
     ) {
         log.info("Staff consultando conta: {}", accountNumber);
@@ -37,9 +36,10 @@ public class AccountController {
         return okResponse("Conta recuperada com sucesso", response, request.getRequestURI());
     }
 
+
     @PreAuthorize("hasRole('CUSTOMER')")
     @GetMapping("/balance")
-    public ResponseEntity<ApiResponse<BalanceResponse>> getBalance(
+    public ResponseEntity<ApiResponseDTO<BalanceResponse>> getBalance(
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest request
     ) {
@@ -51,9 +51,9 @@ public class AccountController {
 
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
     @PatchMapping("/{number}/status")
-    public ResponseEntity<ApiResponse<Void>> updateStatus(
-            @PathVariable String number,
-            @RequestBody @Valid UpdateStatusRequest request,
+    public ResponseEntity<ApiResponseDTO<Void>> updateStatus(
+            @Parameter(description = "Número da conta a ser atualizada") @PathVariable String number,
+            @Parameter(description = "Novo status da conta") @RequestBody @Valid UpdateStatusRequest request,
             HttpServletRequest httpRequest
     ) {
         log.info("Atualizando status da conta {} para {}", number, request.status());
@@ -61,9 +61,9 @@ public class AccountController {
         return okResponse("Status da conta atualizado com sucesso", null, httpRequest.getRequestURI());
     }
 
-    private <T> ResponseEntity<ApiResponse<T>> okResponse(String message, T data, String path) {
+    private <T> ResponseEntity<ApiResponseDTO<T>> okResponse(String message, T data, String path) {
         return ResponseEntity.ok(
-                new ApiResponse<>(
+                new ApiResponseDTO<>(
                         true,
                         message,
                         data,

@@ -1,5 +1,6 @@
 package com.github.freddy.bankApi.controller;
 
+import com.github.freddy.bankApi.docs.TransactionControllerDocs;
 import com.github.freddy.bankApi.dto.request.CardlessWithdrawRequest;
 import com.github.freddy.bankApi.dto.request.DepositRequest;
 import com.github.freddy.bankApi.dto.response.*;
@@ -28,11 +29,11 @@ import java.util.List;
  * Controller para operações de transações bancárias.
  * Todos os endpoints exigem autenticação JWT e verificam propriedade da conta.
  */
-@SecurityRequirement(name = "bearerAuth")
+
 @RestController
 @RequestMapping("/api/v1/transactions")
 @RequiredArgsConstructor
-public class TransactionController {
+public class TransactionController implements TransactionControllerDocs {
     private static final Logger log = LoggerFactory.getLogger(TransactionController.class);
 
     private final TransactionService transactionService;
@@ -42,7 +43,7 @@ public class TransactionController {
      * - Retorna o novo saldo da conta de origem
      */
     @PostMapping("/transfer")
-    public ResponseEntity<ApiResponse<TransferResponse>> transfer(
+    public ResponseEntity<ApiResponseDTO<TransferResponse>> transfer(
             @Valid @RequestBody TransferRequest dto,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest request
@@ -56,7 +57,7 @@ public class TransactionController {
                 userId,  dto.accountNumber(), dto.amount());
 
         return ResponseEntity.ok().body(
-                new ApiResponse<TransferResponse>(
+                new ApiResponseDTO<TransferResponse>(
                 true,
                 "Transfrencia Realizda com sucesso!",
                 response,
@@ -74,7 +75,7 @@ public class TransactionController {
 
     @PreAuthorize("hasRole('ROLE_STAFF')")
     @PostMapping("/deposit")
-    public ResponseEntity<ApiResponse<DepositResponse>> deposit(
+    public ResponseEntity<ApiResponseDTO<DepositResponse>> deposit(
             @Valid @RequestBody DepositRequest dto,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest request
@@ -92,7 +93,7 @@ public class TransactionController {
         log.info("Depósito realizado com sucesso - Usuário ID: {}, Conta: {}, Valor: {}",
                 userId, dto.accountNumber(), dto.amount());
         return ResponseEntity.ok(
-            new ApiResponse<DepositResponse>(
+            new ApiResponseDTO<DepositResponse>(
                     true,
                     "Depósito Realizado com sucesso!",
                     newDeposit,
@@ -109,7 +110,7 @@ public class TransactionController {
      * - Retorna o novo saldo da conta
      */
     @PostMapping("/withdrawals")
-    public ResponseEntity<ApiResponse<CardlessWithdrawResponse>> withdraw(
+    public ResponseEntity<ApiResponseDTO<CardlessWithdrawResponse>> withdraw(
             @Valid @RequestBody CardlessWithdrawRequest dto,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest request
@@ -121,7 +122,7 @@ public class TransactionController {
         log.info("Levantamento realizado com sucesso - Usuário ID: {},  Valor: {}",
                 userId, dto.amount());
         return ResponseEntity.ok(
-                new ApiResponse<CardlessWithdrawResponse>(
+                new ApiResponseDTO<CardlessWithdrawResponse>(
                         true,
                         "Levantamento Realizado!",
                         withdraw,
@@ -133,9 +134,9 @@ public class TransactionController {
     }
 
     @GetMapping("/withdrawals")
-    public ResponseEntity<ApiResponse<List<CardlessWithdrawalDetailsResponse>>> listAllCardless(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+    public ResponseEntity<ApiResponseDTO<List<CardlessWithdrawalDetailsResponse>>> listAllCardless(
+            @RequestParam(defaultValue = "0", required = true) int page,
+            @RequestParam(defaultValue = "10", required = true) int size,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest request
     ) {
@@ -145,11 +146,11 @@ public class TransactionController {
                 .listCardlessWithdrawalDetails(userId, pageable);
 
         return  ResponseEntity.ok(
-                new ApiResponse<List<CardlessWithdrawalDetailsResponse>>(
+                new ApiResponseDTO<List<CardlessWithdrawalDetailsResponse>>(
                 true,
                 "Lista de levantamentos sem cartão",
                list.getContent(),
-                        new ApiResponse.PaginationMeta(
+                        new ApiResponseDTO.PaginationMeta(
                        list.getNumber(),
                         list.getSize(),
                         list.getTotalElements(),
@@ -178,7 +179,7 @@ public class TransactionController {
 
     @PreAuthorize("hasRole('CUSTOMER')")
     @GetMapping()
-    public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHistory(
+    public ResponseEntity<ApiResponseDTO<List<TransactionResponse>>> getTransactionHistory(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort,
@@ -189,11 +190,11 @@ public class TransactionController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<TransactionResponse> history = transactionService
                 .listTransactions(userId, pageable);
-        var response = new ApiResponse<>(
+        var response = new ApiResponseDTO<>(
                 true,
                 "Lista de transaçoes obtidas com sucesso!",
                 history.getContent(),
-                new ApiResponse.PaginationMeta(
+                new ApiResponseDTO.PaginationMeta(
                         history.getNumber(),
                         history.getSize(),
                         history.getTotalElements(),
@@ -208,55 +209,4 @@ public class TransactionController {
     }
 
 
-
-
-    /*
-    @GetMapping("/admin/history")
-    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")   // só staff e admin
-    public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHistoryByBi(
-            @RequestParam String bilhete,                   // número do bilhete (obrigatório)
-            @RequestParam(required = false) String accountNumber,  // opcional: se quiser filtrar por conta específica
-            Pageable pageable,
-            HttpServletRequest request
-    ) {
-        // 1. Encontrar o User pelo bilhete
-        User user = userService.findByBilhete(bilhete)
-                .orElseThrow(() -> new NotFoundException("Utilizador com bilhete " + bilhete + " não encontrado"));
-
-        // 2. Encontrar a(s) conta(s) do user
-        // Opção A: se um user tem só 1 conta principal (mais comum)
-        Account account = accountService.findMainAccountByUserId(user.getId())
-                .orElseThrow(() -> new NotFoundException("Conta principal não encontrada para o utilizador"));
-
-        String targetAccountNumber = account.getAccountNumber();
-
-        // Opção B: se user pode ter várias contas → podes listar todas ou exigir accountNumber no request
-        // if (accountNumber != null) { targetAccountNumber = accountNumber; ... valida se pertence ao user }
-
-        // 3. Buscar transações (reutiliza o service que já tens)
-        Page<TransactionResponse> history = transactionService.listTransactions(targetAccountNumber, pageable);
-
-        // 4. Montar resposta (igual ao teu)
-        var response = new ApiResponse<>(
-                true,
-                "Histórico de transações obtido com sucesso para o bilhete " + bilhete,
-                history.getContent(),
-                new ApiResponse.PaginationMeta(
-                        history.getNumber(),
-                        history.getSize(),
-                        history.getTotalElements(),
-                        history.getTotalPages()
-                ),
-                request.getRequestURI(),
-                OffsetDateTime.now()
-        );
-
-        // Opcional: log de auditoria
-        log.info("Staff/Admin {} consultou transações da conta {} (bilhete: {})",
-                jwt.getSubject(), targetAccountNumber, bilhete);
-
-        return ResponseEntity.ok(response);
-    }
-    *
-     */
 }

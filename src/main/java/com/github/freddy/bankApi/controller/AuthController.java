@@ -1,19 +1,18 @@
 package com.github.freddy.bankApi.controller;
 
-import com.github.freddy.bankApi.dto.request.LoginRequest;
-import com.github.freddy.bankApi.dto.request.LogoutRequest;
-import com.github.freddy.bankApi.dto.request.RefreshTokenRequest;
-import com.github.freddy.bankApi.dto.request.RegisterRequest;
-import com.github.freddy.bankApi.dto.response.ApiResponse;
+import com.github.freddy.bankApi.docs.AuthControllerDocs;
+import com.github.freddy.bankApi.dto.request.*;
+import com.github.freddy.bankApi.dto.response.ApiResponseDTO;
 import com.github.freddy.bankApi.dto.response.AuthTokensResponse;
 import com.github.freddy.bankApi.dto.response.RegistrationResponse;
+import com.github.freddy.bankApi.dto.response.UserProfileResponse;
 import com.github.freddy.bankApi.service.AuthService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import com.github.freddy.bankApi.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -25,20 +24,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-@Tag(name = "Auth", description = "Endpoints de autenticação")
+
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private final AuthService authService;
+    private final UserService userService;
     /**
      * Registra um novo usuário e cria conta padrão.
      * Retorna 201 Created com Location header apontando para o perfil do cliente.
      */
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<RegistrationResponse>> register(
+    @PostMapping("/auth/register")
+    public ResponseEntity<ApiResponseDTO<RegistrationResponse>> register(
             @RequestBody @Valid RegisterRequest data,
             HttpServletRequest request,
             UriComponentsBuilder uriBuilder
@@ -58,7 +58,7 @@ public class AuthController {
         return ResponseEntity
                 .created(location)
                 .body(
-                        new ApiResponse<RegistrationResponse>(
+                        new ApiResponseDTO<RegistrationResponse>(
                               true,
                               "Registro Efectuado com sucesso!",
                                 response,
@@ -69,13 +69,8 @@ public class AuthController {
                 );
     }
 
-    @Operation(
-            summary = "Login do utilizador",
-            description = "Autentica utilizador e retorna token JWT"
-    )
-
-    @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthTokensResponse>> login(
+    @PostMapping("/auth/tokens")
+    public ResponseEntity<ApiResponseDTO<AuthTokensResponse>> login(
             @RequestBody @Valid LoginRequest data,
             HttpServletRequest request
     ) {
@@ -87,7 +82,7 @@ public class AuthController {
 
         return ResponseEntity
                 .ok(
-                        new ApiResponse<AuthTokensResponse>(
+                        new ApiResponseDTO<AuthTokensResponse>(
                                 true,
                                 "Login Efectuado com sucesso",
                                 tokens,
@@ -103,8 +98,8 @@ public class AuthController {
      * Implementa rotação automática.
      */
 
-    @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<AuthTokensResponse>> refreshToken(
+    @PostMapping("/tokens/refresh")
+    public ResponseEntity<ApiResponseDTO<AuthTokensResponse>> refreshToken(
             @RequestBody @Valid RefreshTokenRequest data,
             HttpServletRequest request
     ) {
@@ -115,7 +110,7 @@ public class AuthController {
         log.info("Refresh realizado com sucesso");
 
         return ResponseEntity.ok(
-               new ApiResponse<AuthTokensResponse>(
+               new ApiResponseDTO<AuthTokensResponse>(
                        true,
                        "Token emitido com sucesso",
                        newTokens,
@@ -129,18 +124,53 @@ public class AuthController {
     /**
      * Realiza logout: revoga todos os refresh tokens do usuário logado.
      */
-    @PostMapping("/logout")
+    @DeleteMapping("/auth/sessions")
     public ResponseEntity<Void> logout(
-            @AuthenticationPrincipal Jwt jwt,
-            @RequestBody @Valid LogoutRequest data
+            @AuthenticationPrincipal Jwt jwt
     ) {
         var userId = jwt.getSubject();
         log.info("Requisição de logout para usuário ID: {}", userId);
 
-        authService.logout(userId, data);
+        authService.logout(userId);
 
         log.info("Logout concluído com sucesso para usuário ID: {}", userId);
 
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/users")
+    public ResponseEntity<ApiResponseDTO<UserProfileResponse>> createInternalUser(
+            @Valid @RequestBody StaffUserRequest dto,
+            UriComponentsBuilder uriBuilder,
+            HttpServletRequest request
+    ) {
+        var user = userService.createInternalUser(dto);
+        URI location = uriBuilder
+                .path("/api/v1/users/{id}")
+                .buildAndExpand(user.userId())
+                .toUri();
+        return ResponseEntity
+                .created(location)
+                .body(
+                        new ApiResponseDTO<UserProfileResponse>(
+                                true,
+                                "Utilizador Criado com sucesso!",
+                                user,
+                                null,
+                                request.getRequestURI(),
+                                OffsetDateTime.now()
+                        )
+                );
+    }
+
+    @PreAuthorize("#userId == authentication.principal.subject")
+    @PatchMapping("/users/me/password")
+    public ResponseEntity<Void> updatePassword(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable @Valid UpdatePasswordRequest passwordRequest
+    ) {
+        userService.updatePassword(jwt.getSubject(), passwordRequest);
         return ResponseEntity.noContent().build();
     }
 }

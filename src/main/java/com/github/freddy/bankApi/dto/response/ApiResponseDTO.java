@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 
 @Schema(description = "Resposta da api")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record ApiResponse<T>(
+public record ApiResponseDTO<T>(
         boolean success,
         String message,  // "Operação realizada com sucesso",
         T data,

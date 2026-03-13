@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record UpdatePasswordRequest(
-        @NotBlank(message = "Senha atual é obrigatória")
+        @NotBlank(message = "Senha actual é obrigatória")
         String currentPassword,
 
         @NotBlank(message = "Nova senha é obrigatória")

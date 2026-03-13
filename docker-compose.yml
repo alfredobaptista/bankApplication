@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: bankapi_postgres
+    ports:
+      - "${DB_PORT}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - bankapi_data:/var/lib/postgresql/data
+    networks:
+      - bankapi_network
+
+  pgadmin:
+    image: dpage/pgadmin4:7
+    container_name: bankapi_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+    networks:
+      - bankapi_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bankapi_app
+    ports:
+      - "${SERVER_PORT}:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SERVER_PORT: ${SERVER_PORT}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      - db
+    volumes:
+      - ./keys:/keys # mapeia suas chaves JWT
+    networks:
+      - bankapi_network
+
+volumes:
+  bankapi_data:
+
+networks:
+  bankapi_network:
+    driver: bridge

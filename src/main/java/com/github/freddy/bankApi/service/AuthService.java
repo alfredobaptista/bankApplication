@@ -93,7 +93,7 @@ public class AuthService {
         }
 
         // Rotação: revoga o token usado
-        refreshTokenService.revokeRefreshToken(tokenEntity.getUser().getId().toString(), request.refreshToken());
+        refreshTokenService.revokeRefreshToken(tokenEntity.getUser().getId().toString());
         log.debug("Refresh token antigo revogado para usuário ID: {}", tokenEntity.getUser().getId());
 
         // Gera novos tokens
@@ -104,7 +104,7 @@ public class AuthService {
         return newTokens;
     }
 
-    public  void logout(String userId, LogoutRequest data) {
-        refreshTokenService.revokeRefreshToken(userId, data.refreshToken());
+    public  void logout(String userId) {
+        refreshTokenService.revokeRefreshToken(userId);
     }
 }

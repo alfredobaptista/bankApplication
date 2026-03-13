@@ -135,16 +135,16 @@ public class UserService {
      * Valida a senha atual antes de alterar.
      */
     @Transactional
-    public void updatePassword(UUID userId, UpdatePasswordRequest request) {
+    public void updatePassword(String userId, UpdatePasswordRequest request) {
         log.debug("Tentativa de atualização de senha para usuário ID: {}", userId);
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
         // Valida senha atual
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
-            log.warn("Atualização de senha falhou: senha atual incorreta para usuário ID: {}", userId);
-            throw new BadCredentialsException("Senha atual incorreta");
+            log.warn("Actualização de senha falhou: senha actual incorreta para usuário ID: {}", userId);
+            throw new BadCredentialsException("Senha actual incorreta");
         }
 
         if (request.newPassword().equals(request.currentPassword())) {
@@ -160,7 +160,7 @@ public class UserService {
     }
 
     public Page<UserProfileResponse> listUsers(Pageable pageable, String role, String bi, String status) {
-        Page<User> users = userRepository.findByFilters(role, bi, status, pageable);
+        Page<User> users = userRepository.findByFilters(role, bi, pageable);
         return users.map(user -> new UserProfileResponse(
                 user.getId(),
                 user.getName(),

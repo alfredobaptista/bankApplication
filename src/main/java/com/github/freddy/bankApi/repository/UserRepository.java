@@ -20,12 +20,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT u FROM User u " +
             "WHERE (:role IS NULL OR u.role = :role) " +
-            "AND (:bi IS NULL OR u.bi LIKE %:bi%) " +
-            "AND (:status IS NULL OR u.status = :status)")
+            "AND (:bi IS NULL OR u.bi LIKE %:bi%) " )
     Page<User> findByFilters(
             @Param("role") String role,
             @Param("bi") String bi,
-            @Param("status") String status,
             Pageable pageable
     );
 

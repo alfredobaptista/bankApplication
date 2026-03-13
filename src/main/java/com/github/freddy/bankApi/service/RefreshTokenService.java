@@ -25,7 +25,7 @@ public class RefreshTokenService {
     public RefreshToken createRefreshToken(User user) {
         Instant expiryDate = Instant.now().plusSeconds(refreshExpirationDays * 86_400);
 
-        var existing = refreshTokenRepository.findByUser(user);
+        var existing = refreshTokenRepository.findByUserId(user.getId());
 
         if(existing.isPresent() && existing.get().getExpiryDate().isBefore(expiryDate)) {
             var token = existing.get();
@@ -51,9 +51,9 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public void revokeRefreshToken(String userId, String refreshToken) {
+    public void revokeRefreshToken(String userId) {
         RefreshToken token = refreshTokenRepository
-                .findByTokenAndUserId(refreshToken, UUID.fromString(userId))
+                .findByUserId(UUID.fromString(userId))
                 .orElseThrow(() -> new NotFoundException("Refresh token não encontrado"));
 
         if (token.isRevoked()) {

@@ -20,150 +20,82 @@ import java.util.List;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-    private final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-    private ResponseEntity<ApiResponseError> buildErrorResponse(
-            HttpStatus status,
-            ErrorCode errorCode,
-            String message,
-            HttpServletRequest request,
-            List<ApiResponseError.FieldErrorDetail> details
-    ) {
-        var response = new ApiResponseError(
-                status.value(),
-                errorCode,
-                message,
-                request.getRequestURI(),
-                OffsetDateTime.now(),
-                details
-        );
-        return ResponseEntity.status(status).body(response);
+
+    private ResponseEntity<ApiResponseError> buildError(HttpStatus status,
+                                                        ErrorCode errorCode,
+                                                        String message,
+                                                        HttpServletRequest request,
+                                                        List<ApiResponseError.FieldErrorDetail> details) {
+        return ResponseEntity.status(status)
+                .body(new ApiResponseError(
+                        status.value(),
+                        errorCode,
+                        message,
+                        request.getRequestURI(),
+                        OffsetDateTime.now(),
+                        details
+                ));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponseError> handleMethodArgumentNotValidException(
-            MethodArgumentNotValidException ex, HttpServletRequest request
-    ) {
-        var fieldErrors = ex.getBindingResult()
+    public ResponseEntity<ApiResponseError> handleValidation(MethodArgumentNotValidException ex,
+                                                             HttpServletRequest request) {
+        var details = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(fe -> new ApiResponseError.FieldErrorDetail(
-                        fe.getField(),
-                        fe.getDefaultMessage())
-                ).toList();
-
-        return buildErrorResponse(
-                HttpStatus.BAD_REQUEST,
-                ErrorCode.VALIDATION_ERROR,
-                "Um ou mais campos não passaram na validação",
-                request,
-                fieldErrors
-        );
+                .map(fe -> new ApiResponseError.FieldErrorDetail(fe.getField(), fe.getDefaultMessage()))
+                .toList();
+        return buildError(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR,
+                "Erro de validação nos campos enviados", request, details);
     }
 
-
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiResponseError> handleBadCredentialsException(
-            BadCredentialsException ex, HttpServletRequest request
-    ) {
-        return buildErrorResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR, ex.getMessage(), request, null);
+    public ResponseEntity<ApiResponseError> handleBadCredentials(BadCredentialsException ex,
+                                                                 HttpServletRequest request) {
+        return buildError(HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHORIZED, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<ApiResponseError> handleUnauthorizedException(
-            UnauthorizedException ex, HttpServletRequest request
-    ) {
-        return buildErrorResponse(
-                HttpStatus.UNAUTHORIZED,
-                ErrorCode.UNAUTHORIZED,
-                ex.getMessage(),
-                request,
-                null
-        );
+    public ResponseEntity<ApiResponseError> handleUnauthorized(UnauthorizedException ex,
+                                                               HttpServletRequest request) {
+        return buildError(HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHORIZED, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<ApiResponseError> handleNotFoundException(
-            NotFoundException ex, HttpServletRequest request
-    ) {
-        return buildErrorResponse(
-                HttpStatus.NOT_FOUND,
-                ErrorCode.NOT_FOUND,
-                ex.getMessage(),
-                request,
-                null
-        );
+    public ResponseEntity<ApiResponseError> handleNotFound(NotFoundException ex,
+                                                           HttpServletRequest request) {
+        return buildError(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(InsufficientBalanceException.class)
-    public ResponseEntity<ApiResponseError> handleInsufficientBalanceException(
-            InsufficientBalanceException ex, HttpServletRequest request
-    ) {
-        return buildErrorResponse(
-                HttpStatus.CONFLICT,
-                ErrorCode.INSUFFICIENT_FUNDS,
-                ex.getMessage(),
-                request,
-                null
-        );
+    public ResponseEntity<ApiResponseError> handleInsufficientBalance(InsufficientBalanceException ex,
+                                                                      HttpServletRequest request) {
+        return buildError(HttpStatus.CONFLICT, ErrorCode.INSUFFICIENT_FUNDS, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(ConflictException.class)
-    public ResponseEntity<ApiResponseError> handleConflictException(
-            ConflictException ex,
-            HttpServletRequest request
-    ) {
-        return buildErrorResponse(
-                HttpStatus.CONFLICT,
-                ErrorCode.VALIDATION_ERROR,
-                ex.getMessage(),
-                request,
-                null
-                );
+    public ResponseEntity<ApiResponseError> handleConflict(ConflictException ex,
+                                                           HttpServletRequest request) {
+        return buildError(HttpStatus.CONFLICT, ErrorCode.CONFLICT, ex.getMessage(), request, null);
     }
 
-
     @ExceptionHandler(AccountCreationException.class)
-    public ResponseEntity<ApiResponseError> handleAccountCreationException(
-            AccountCreationException ex,
-            HttpServletRequest request
-    ) {
-        return buildErrorResponse(
-                HttpStatus.BAD_REQUEST,
-                ErrorCode.UNAUTHORIZED,
-                ex.getMessage(),
-                request,
-                null
-        );
+    public ResponseEntity<ApiResponseError> handleAccountCreation(AccountCreationException ex,
+                                                                  HttpServletRequest request) {
+        return buildError(HttpStatus.BAD_REQUEST, ErrorCode.ACCOUNT_CREATION_FAILED, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(InvalidReferenceCodeException.class)
-    public ResponseEntity<ApiResponseError> handleInvalidReferenceCodeException(
-            InvalidReferenceCodeException ex,
-            HttpServletRequest request
-    ) {
-        return buildErrorResponse(
-                HttpStatus.BAD_REQUEST,
-                ErrorCode.INSUFFICIENT_FUNDS,
-                ex.getMessage(),
-                request,
-                null
-        );
+    public ResponseEntity<ApiResponseError> handleInvalidReferenceCode(InvalidReferenceCodeException ex,
+                                                                       HttpServletRequest request) {
+        return buildError(HttpStatus.BAD_REQUEST, ErrorCode.INVALID_REFERENCE_CODE, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ApiResponseError> handleRuntimeException(
-            RuntimeException ex,
-            HttpServletRequest request
-    ) {
-        logger.error(ex.getMessage(), ex);
-        return buildErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                ErrorCode.INTERNAL_SERVER_ERROR,
-                "Erro interno do servidor",
-                request,
-                null
-        );
+    public ResponseEntity<ApiResponseError> handleRuntime(RuntimeException ex,
+                                                          HttpServletRequest request) {
+        log.error("Erro inesperado: {}", ex.getMessage(), ex);
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_SERVER_ERROR,
+                "Erro interno do servidor", request, null);
     }
 }
-
-

@@ -5,21 +5,16 @@ import com.github.freddy.bankApi.dto.response.AtmCardlessResponse;
 import com.github.freddy.bankApi.entity.Account;
 import com.github.freddy.bankApi.entity.CardlessWithdrawal;
 import com.github.freddy.bankApi.entity.Transaction;
-import com.github.freddy.bankApi.enums.TransactionStatus;
-import com.github.freddy.bankApi.enums.TransactionType;
 import com.github.freddy.bankApi.enums.WithdrawalStatus;
-import com.github.freddy.bankApi.exception.InsufficientBalanceException;
 import com.github.freddy.bankApi.exception.InvalidReferenceCodeException;
+import com.github.freddy.bankApi.exception.InvalidSecretCodeException;
 import com.github.freddy.bankApi.exception.NotFoundException;
-import com.github.freddy.bankApi.repository.AccountRepository;
 import com.github.freddy.bankApi.repository.CardlessWithdrawalRepository;
-import com.github.freddy.bankApi.repository.TransactionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
@@ -32,7 +27,7 @@ public class AtmService {
     private final TransactionService transactionService;
 
     @Transactional
-    public AtmCardlessResponse cardlessWithdrawAtAtm(AtmCardlessRequest atmRequest) {
+    public AtmCardlessResponse cardlessWithdraw(AtmCardlessRequest atmRequest) {
 
         CardlessWithdrawal cw = cardlessRepository
                 .findByReferenceCodeAndStatus(atmRequest.referenceCode(), WithdrawalStatus.PENDING)
@@ -60,20 +55,17 @@ public class AtmService {
         );
     }
 
-
     private void validateWithdrawal(CardlessWithdrawal cw, String secretCode, Account account) {
-
         if (cw.getExpiry().isBefore(LocalDateTime.now())) {
             cw.setStatus(WithdrawalStatus.EXPIRED);
             account.setAvailableBalance(
                     account.getAvailableBalance().add(cw.getAmount())
             );
             cardlessRepository.save(cw);
-
             throw new InvalidReferenceCodeException("Levantamento expirado");
         }
         if (!cw.getSecretCode().equals(secretCode)) {
-            throw new InvalidReferenceCodeException("Código inválido");
+            throw new InvalidSecretCodeException("Código inválido");
         }
     }
 }

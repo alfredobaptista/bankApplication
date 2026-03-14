@@ -23,9 +23,10 @@ public class AtmController implements AtmControllerDocs {
 
     @Override
     @PostMapping("/cardless")
-    public ApiResponseDTO<AtmCardlessResponse> completeCardless(@RequestBody AtmCardlessRequest dto,
-                                                                HttpServletRequest request) {
-        AtmCardlessResponse response = atmService.cardlessWithdrawAtAtm(dto);
+    public ApiResponseDTO<AtmCardlessResponse> completeCardless(
+            @RequestBody AtmCardlessRequest dto,
+            HttpServletRequest request) {
+        AtmCardlessResponse response = atmService.cardlessWithdraw(dto);
         return new ApiResponseDTO<>(
                 true,
                 "Levantamento realizado",

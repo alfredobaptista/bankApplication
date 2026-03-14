@@ -2,38 +2,41 @@
 
 Uma API bancária moderna, segura e escalável, construída com Spring Boot e PostgreSQL, pronta para ambientes de produção
 
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)
+<div align="center">
+
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
 ![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql&logoColor=white)
-![Security](https://img.shields.io/badge/Spring_Security-JWT-6DB33F?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-%20Concluido-yellow?style=for-the-badge)
+![Spring Security](https://img.shields.io/badge/Spring_Security-JWT-6DB33F?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Concluído-brightgreen?style=for-the-badge)
 
+</div>
 ## 📖 Sobre o Projeto
-Uma aplicação **backend** robusta que implementa as funcionalidades essenciais de um sistema bancário moderno, seguindo boas práticas de desenvolvimento com Spring Boot.
+Backend robusto que implementa as funcionalidades essenciais de um sistema bancário moderno, seguindo as melhores práticas de desenvolvimento com Spring Boot.
 
 ## ✨ Principais Funcionalidades
 
-- **Autenticação e Autorização** via OAuth2 Resource Server + JWT (Spring Security)
-- Perfis de usuário: **Cliente**, **Funcionário**, **Administrador**
-- **CRUD** completo de usuários, contas e transações (com validação @Valid)
+- Autenticação e Autorização com **JWT** (OAuth2 Resource Server + Spring Security)
+- Perfis de utilizador: **Cliente**, **Funcionário**, **Administrador**
+- CRUD completo de utilizadores, contas e transações
 - Operações financeiras:
     - Depósitos
-    - Levantamentos (Somente Levantamentos cardless incluídos)
-    - Transferências internas
+    - Levantamentos **cardless** (sem cartão)
+    - Transferências internas entre contas
     - Histórico paginado e filtrado de transações
-- Controle rigoroso de **saldo** (não permite saldo negativo)
-- **Limpeza automática** de Levantamentos cardless expirados (scheduler)
-- Validação de dados com `@Valid` e tratamento global de erros
-- **Detecção de fraude**:
-    - Varredura a cada 5 minutos
-    - Bloqueio preventivo de contas com múltiplas transações de alto valor
-    - Logs de alerta e preparado para notificações
-- Documentação interactiva com **OpenAPI 3 / Swagger UI**
-- Tratamento global de exceções (@ControllerAdvice)
+- Controlo rigoroso de **saldo** (impede saldo negativo)
+- **Scheduler** para limpeza automática de levantamentos cardless expirados
+- **Detecção de fraude** configurável:
+    - Verificação periódica (a cada 5 minutos)
+    - Bloqueio preventivo em caso de múltiplas transações suspeitas
+    - Registo de alertas (preparado para notificações)
+- Documentação interativa com **OpenAPI 3 / Swagger UI**
+- Tratamento global de exceções (`@ControllerAdvice`)
+- Validação com `@Valid` e mensagens claras
 - Testes unitários e de integração (**JUnit 5 + Mockito + Testcontainers**)
-- Migrações de banco automatizadas com **Flyway**
-- Suporte a **Docker** + **Docker Compose** para dev e prod
-- Perfis Spring (`dev`, `prod`) com configurações seguras
+- Migrações de base de dados com **Flyway**
+- Suporte completo a **Docker** + **Docker Compose**
+- Perfis Spring (`dev`, `prod`, `test`) com configurações seguras
 
 ## 🛠️ Tecnologias Utilizadas
 
